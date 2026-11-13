@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ELEMENTOS, LENDAS, Lenda, VANTAGENS, Elemento } from "@/lib/lendas/data";
 import { Nivel } from "@/lib/lendas/engine";
@@ -94,6 +95,11 @@ export function LendasGame() {
             <button className="btn gold big-btn" disabled={timeValido.length !== TAMANHO_TIME} onClick={iniciar}>
               ⚔️ Batalhar!
             </button>
+            {timeValido.length === TAMANHO_TIME ? (
+              <Link href="/lendas/explorar" className="btn big-btn explorar-btn">🗺️ Explorar</Link>
+            ) : (
+              <button className="btn big-btn explorar-btn" disabled title="Escolha 3 lendas primeiro">🗺️ Explorar</button>
+            )}
           </div>
         </div>
 

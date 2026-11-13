@@ -7,9 +7,31 @@ import {
   ARENA, AcaoBatalha, CerebroAcao, Comando, PEDRAS, RAIO, ativoDe, comandoComputador, criarAcao, formaDe,
   miraAssistida, novoCerebro, passo, podeTrocarAcao, prontoParaGolpe, travado,
 } from "@/lib/lendas/acao";
+import { chanceCaptura } from "@/lib/lendas/mapa";
 import { useRewards } from "../RewardsProvider";
 
-type Props = { meu: string[]; deles: string[]; nivel: Nivel; onRevanche: () => void; onSair: () => void };
+export type ResultadoSelvagem = "capturou" | "venceu" | "perdeu" | "fugiu";
+
+/** Batalha contra uma lenda selvagem (exploração). */
+export type ModoSelvagem = {
+  raro: boolean;
+  /** Multiplicador de vida da lenda selvagem (ela luta sozinha contra o seu time). */
+  vidaMult: number;
+  amuletos: number;
+  usarAmuleto: () => boolean;
+  onFim: (r: ResultadoSelvagem) => void;
+};
+
+type Props = {
+  meu: string[];
+  deles: string[];
+  nivel: Nivel;
+  onRevanche: () => void;
+  onSair: () => void;
+  selvagem?: ModoSelvagem;
+};
+
+type Captura = { fase: "tremendo" | "ok" | "falhou"; chance: number };
 
 const PASSO = 1 / 60;
 const TECLAS_GOLPE: Record<string, number> = { q: 1, e: 2, r: 3 };
@@ -26,9 +48,13 @@ type Entrada = {
   troca: number | null;
 };
 
-export function ActionBattle({ meu, deles, nivel, onRevanche, onSair }: Props) {
+export function ActionBattle({ meu, deles, nivel, onRevanche, onSair, selvagem }: Props) {
   const bat = useRef<AcaoBatalha>(null as unknown as AcaoBatalha);
-  if (!bat.current) bat.current = criarAcao(meu, deles);
+  // Lenda selvagem luta sozinha contra o seu time, então é mais resistente
+  if (!bat.current) bat.current = criarAcao(meu, deles, [1, selvagem?.vidaMult ?? 1]);
+  const [captura, setCaptura] = useState<Captura | null>(null);
+  const capturou = useRef(false);
+  const amuletoRef = useRef<() => void>(() => {});
   const cerebro = useRef<CerebroAcao>(novoCerebro());
   const entrada = useRef<Entrada>({ teclas: new Set(), mouse: null, atirando: false, toque: false, joy: null, pendente: null, troca: null });
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -40,7 +66,7 @@ export function ActionBattle({ meu, deles, nivel, onRevanche, onSair }: Props) {
   const pausaRef = useRef(false);
   const contagem = useRef(CONTAGEM);
   const { recordGame } = useRewards();
-  pausaRef.current = pausado;
+  pausaRef.current = pausado || captura !== null;
 
   // ---------- Laço principal ----------
   useEffect(() => {
@@ -148,6 +174,7 @@ export function ActionBattle({ meu, deles, nivel, onRevanche, onSair }: Props) {
       e.teclas.add(k);
       if (k in TECLAS_GOLPE) e.pendente = { i: TECLAS_GOLPE[k], t: 0.25 };
       if (["1", "2", "3"].includes(k)) e.troca = Number(k) - 1;
+      if (k === "f" && !ev.repeat) amuletoRef.current();
     };
     const cima = (ev: KeyboardEvent) => e.teclas.delete(ev.key.toLowerCase());
     const perdeuFoco = () => {
@@ -210,15 +237,36 @@ export function ActionBattle({ meu, deles, nivel, onRevanche, onSair }: Props) {
 
   const b = bat.current;
 
-  // Moedas no fim (uma vez)
+  // Moedas no fim (uma vez) — no modo selvagem quem premia é a tela de exploração
   useEffect(() => {
-    if (b.vencedor === null || premiado.current) return;
+    if (b.vencedor === null || premiado.current || selvagem) return;
     premiado.current = true;
     setPremio(recordGame("arena-das-lendas", b.vencedor === 0 ? nivel + 1 : 0).coins);
   });
 
   const eu = ativoDe(b, 0);
   const ele = ativoDe(b, 1);
+  const chance = chanceCaptura(ele.vida / ele.vidaMax, travado(ele), !!selvagem?.raro);
+
+  const lancarAmuleto = () => {
+    if (!selvagem || captura || b.vencedor !== null || contagem.current > 0) return;
+    if (!selvagem.usarAmuleto()) return;
+    setCaptura({ fase: "tremendo", chance });
+    setTimeout(() => {
+      if (Math.random() < chance) {
+        capturou.current = true;
+        b.vencedor = 0;
+        setCaptura({ fase: "ok", chance });
+      } else {
+        setCaptura({ fase: "falhou", chance });
+        setTimeout(() => setCaptura(null), 900);
+      }
+    }, 1600);
+  };
+
+  amuletoRef.current = lancarAmuleto;
+
+  const fimSelvagem = (): ResultadoSelvagem => (capturou.current ? "capturou" : b.vencedor === 0 ? "venceu" : "perdeu");
   const golpeToque = (i: number) => {
     entrada.current.toque = true;
     entrada.current.pendente = { i, t: 0.3 };
@@ -230,15 +278,43 @@ export function ActionBattle({ meu, deles, nivel, onRevanche, onSair }: Props) {
         <button className="btn small-btn" onClick={() => setPausado((p) => !p)} disabled={b.vencedor !== null}>
           {pausado ? "▶ Continuar" : "⏸ Pausar"}
         </button>
-        <span className="muted small">⏱ {Math.floor(b.tempo)}s · {["", "Fácil", "Médio", "Difícil"][nivel]}</span>
-        <button className="btn small-btn" onClick={onSair}>Sair</button>
+        <span className="muted small">⏱ {Math.floor(b.tempo)}s · {selvagem ? `Selvagem · Nv ${nivel}` : ["", "Fácil", "Médio", "Difícil"][nivel]}</span>
+        {selvagem ? (
+          <button className="btn small-btn" onClick={() => selvagem.onFim("fugiu")} disabled={b.vencedor !== null || captura !== null}>🏃 Fugir</button>
+        ) : (
+          <button className="btn small-btn" onClick={onSair}>Sair</button>
+        )}
       </div>
 
       <TimeStrip b={b} lado={1} />
 
       <div className="acao-canvas-box" ref={caixa}>
         <canvas ref={canvas} className="acao-canvas" />
-        {b.vencedor !== null && (
+        {captura && captura.fase !== "ok" && (
+          <div className="overlay-full captura-overlay">
+            <div className={`captura-amuleto ${captura.fase}`}>🔮</div>
+            <p className="captura-texto">
+              {captura.fase === "tremendo" ? `Capturando ${ele.lenda.nome}… (${Math.round(captura.chance * 100)}%)` : `${ele.lenda.nome} escapou!`}
+            </p>
+          </div>
+        )}
+        {selvagem && b.vencedor !== null && (
+          <div className="overlay-full">
+            <div className="overlay">
+              <div className="overlay-emoji">{capturou.current ? ele.lenda.emoji : b.vencedor === 0 ? "🏆" : "😵"}</div>
+              <h2>{capturou.current ? `Capturou ${ele.lenda.nome}!` : b.vencedor === 0 ? `Venceu ${ele.lenda.nome}!` : "Seu time foi derrotado…"}</h2>
+              <p className="muted">
+                {capturou.current
+                  ? "Ela agora faz parte da sua coleção."
+                  : b.vencedor === 0
+                    ? "Ela fugiu ferida. Da próxima vez, use um amuleto antes!"
+                    : "Volte para a vila e tente de novo."}
+              </p>
+              <button className="btn gold" onClick={() => selvagem.onFim(fimSelvagem())}>🗺️ Voltar ao mapa</button>
+            </div>
+          </div>
+        )}
+        {!selvagem && b.vencedor !== null && (
           <div className="overlay-full">
             <div className="overlay">
               <div className="overlay-emoji">{b.vencedor === 0 ? "🏆" : "😵"}</div>
@@ -309,6 +385,17 @@ export function ActionBattle({ meu, deles, nivel, onRevanche, onSair }: Props) {
             <kbd>{i + 1}</kbd>
           </button>
         ))}
+        {selvagem && (
+          <button
+            className={`btn amuleto-btn ${chance >= 0.5 ? "bom" : ""}`}
+            onClick={lancarAmuleto}
+            disabled={selvagem.amuletos <= 0 || captura !== null || b.vencedor !== null}
+            title="Quanto menos vida a lenda tiver, maior a chance (tecla F)"
+          >
+            🔮 Amuleto ×{selvagem.amuletos}
+            <small>{selvagem.amuletos > 0 ? `chance ${Math.round(chance * 100)}%` : "sem amuletos"}</small>
+          </button>
+        )}
       </div>
 
       <p className="muted small acao-ajuda">

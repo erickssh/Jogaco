@@ -22,6 +22,10 @@ export type PlayerState = {
   bestScores: Record<string, number>;
   totalPlays: number;
   today: DayStats;
+  /** Inventário de itens (ex.: { amuleto: 5 }). */
+  itens: Record<string, number>;
+  /** Flags de presentes únicos já recebidos. */
+  presentes: string[];
 };
 
 /** Data local (não UTC), para o dia virar à meia-noite do jogador. */
@@ -51,6 +55,8 @@ export function initialState(): PlayerState {
     bestScores: {},
     totalPlays: 0,
     today: emptyDay(),
+    itens: {},
+    presentes: [],
   };
 }
 
@@ -94,6 +100,8 @@ const POOL: Mission[] = [
   { id: "earn50", title: "Ganhe 50 moedas jogando", reward: 25, target: 50, progress: (d) => d.coinsFromGames },
   { id: "all3", title: "Jogue 3 jogos diferentes hoje", reward: 50, target: 3, progress: (d) => Object.keys(d.perGame).length },
   { id: "arena1", title: "Vença uma batalha na Arena das Lendas", reward: 50, target: 1, progress: (d) => ((d.perGame["arena-das-lendas"]?.best ?? 0) >= 2 ? 1 : 0) },
+  { id: "captura1", title: "Capture uma lenda selvagem", reward: 60, target: 1, progress: (d) => d.perGame["captura"]?.plays ?? 0 },
+  { id: "explora3", title: "Vença 3 lendas selvagens", reward: 40, target: 3, progress: (d) => d.perGame["selvagem"]?.plays ?? 0 },
   { id: "chess1", title: "Termine uma partida de xadrez", reward: 30, target: 1, progress: (d) => d.perGame["xadrez"]?.plays ?? 0 },
   { id: "chesswin", title: "Vença uma partida de xadrez", reward: 60, target: 1, progress: (d) => ((d.perGame["xadrez"]?.best ?? 0) >= 2 ? 1 : 0) },
 ];

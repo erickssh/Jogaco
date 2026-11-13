@@ -85,16 +85,17 @@ export const comandoVazio = (mira: Vec): Comando => ({ mover: { x: 0, y: 0 }, mi
 export const VIDA_ACAO = 0.5;
 export const CURA_ACAO = 0.6;
 
-function lutadorAcao(id: string) {
+function lutadorAcao(id: string, mult = 1) {
   const l = novoLutador(id);
-  l.vidaMax = Math.round(l.vidaMax * VIDA_ACAO);
+  l.vidaMax = Math.round(l.vidaMax * VIDA_ACAO * mult);
   l.vida = l.vidaMax;
   return l;
 }
 
-export function criarAcao(timeA: string[], timeB: string[]): AcaoBatalha {
+/** vidaMult: multiplicador de vida por lado (ex.: lenda selvagem sozinha é mais resistente). */
+export function criarAcao(timeA: string[], timeB: string[], vidaMult: [number, number] = [1, 1]): AcaoBatalha {
   return {
-    times: [timeA.map(lutadorAcao), timeB.map(lutadorAcao)],
+    times: [timeA.map((id) => lutadorAcao(id, vidaMult[0])), timeB.map((id) => lutadorAcao(id, vidaMult[1]))],
     ativo: [0, 0],
     pos: [{ ...NASCER[0] }, { ...NASCER[1] }],
     vel: [{ x: 0, y: 0 }, { x: 0, y: 0 }],

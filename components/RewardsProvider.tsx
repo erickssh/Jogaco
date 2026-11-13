@@ -20,6 +20,16 @@ type Ctx = {
   state: PlayerState;
   ready: boolean;
   recordGame: (slug: string, score: number) => { coins: number; capped: boolean; newBest: boolean };
+  /** Como recordGame, mas com o valor de moedas informado (ex.: exploração, captura). */
+  recordCustom: (slug: string, score: number, coins: number) => { coins: number; capped: boolean; newBest: boolean };
+  /** Itens (ex.: amuletos). */
+  addItem: (id: string, qtd: number, label?: string) => void;
+  consumeItem: (id: string) => boolean;
+  buyItem: (id: string, price: number, qtd: number, label: string) => boolean;
+  /** Ganha uma lenda sem pagar (captura). Retorna false se já tinha. */
+  grantLenda: (id: string, label: string) => boolean;
+  /** Presente único (ex.: amuletos grátis na primeira exploração). */
+  claimGift: (flag: string, itemId: string, qtd: number, label: string) => void;
   claimLogin: () => void;
   claimMission: (id: string) => void;
   buy: (id: string) => void;
@@ -72,8 +82,15 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
 
   const recordGame: Ctx["recordGame"] = (slug, score) => {
     const game = getGame(slug);
-    const s = current();
     const raw = game && game.kind === "proprio" ? game.coinsFor(Math.max(0, Math.floor(score))) : 0;
+    return registrar(slug, score, raw);
+  };
+
+  const recordCustom: Ctx["recordCustom"] = (slug, score, coins) => registrar(slug, score, coins);
+
+  /** Registra uma partida (estatísticas do dia, recorde) e dá moedas respeitando o limite diário. */
+  const registrar = (slug: string, score: number, raw: number) => {
+    const s = current();
     const room = Math.max(0, DAILY_GAME_COIN_CAP - s.today.coinsFromGames);
     const coins = Math.min(raw, room);
     const prevDay = s.today.perGame[slug] ?? { plays: 0, best: 0 };
@@ -130,6 +147,47 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     notify(`Você comprou: ${item.name} ${item.id}`);
   };
 
+  const addItem: Ctx["addItem"] = (id, qtd, label) => {
+    const s = current();
+    const itens = { ...(s.itens ?? {}) };
+    itens[id] = (itens[id] ?? 0) + qtd;
+    setState({ ...s, itens });
+    if (label) notify(label);
+  };
+
+  const consumeItem: Ctx["consumeItem"] = (id) => {
+    const s = current();
+    const tem = s.itens?.[id] ?? 0;
+    if (tem <= 0) return false;
+    setState({ ...s, itens: { ...s.itens, [id]: tem - 1 } });
+    return true;
+  };
+
+  const buyItem: Ctx["buyItem"] = (id, price, qtd, label) => {
+    const s = current();
+    if (s.coins < price) return false;
+    setState({ ...s, coins: s.coins - price, itens: { ...(s.itens ?? {}), [id]: (s.itens?.[id] ?? 0) + qtd } });
+    notify(`Comprou: ${label}`);
+    return true;
+  };
+
+  const grantLenda: Ctx["grantLenda"] = (id, label) => {
+    const s = current();
+    const key = `lenda:${id}`;
+    if (s.owned.includes(key)) return false;
+    setState({ ...s, owned: [...s.owned, key] });
+    notify(`Nova lenda: ${label} ✨`);
+    return true;
+  };
+
+  const claimGift: Ctx["claimGift"] = (flag, itemId, qtd, label) => {
+    const s = current();
+    const presentes = s.presentes ?? [];
+    if (presentes.includes(flag)) return;
+    setState({ ...s, presentes: [...presentes, flag], itens: { ...(s.itens ?? {}), [itemId]: (s.itens?.[itemId] ?? 0) + qtd } });
+    notify(label);
+  };
+
   const unlock: Ctx["unlock"] = (id, price, label) => {
     const s = current();
     if (s.owned.includes(id) || s.coins < price) return false;
@@ -145,7 +203,7 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <RewardsContext.Provider value={{ state, ready, recordGame, claimLogin, claimMission, buy, unlock, equip, toast }}>
+    <RewardsContext.Provider value={{ state, ready, recordGame, recordCustom, addItem, consumeItem, buyItem, grantLenda, claimGift, claimLogin, claimMission, buy, unlock, equip, toast }}>
       {children}
       {toast && <div className="toast" role="status">{toast}</div>}
     </RewardsContext.Provider>
