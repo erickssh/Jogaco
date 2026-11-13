@@ -1,4 +1,4 @@
-export type Category = "Arcade" | "Puzzle" | "Ação";
+export type Category = "Arcade" | "Puzzle" | "Ação" | "Tabuleiro";
 
 export type Game = {
   slug: string;
@@ -12,6 +12,11 @@ export type Game = {
    *  "parceiro" = jogo de distribuidora (iframe), sem pontuação confiável. */
   kind: "proprio" | "parceiro";
   embedUrl?: string;
+  /** Página própria (em vez de /jogo/slug). */
+  href?: string;
+  /** Não mostrar "recorde" (ex.: xadrez, onde a pontuação é o resultado). */
+  hideRecord?: boolean;
+  online?: boolean;
   scoreLabel: string;
   /** Converte a pontuação de uma partida em moedas. */
   coinsFor: (score: number) => number;
@@ -54,10 +59,30 @@ export const GAMES: Game[] = [
     scoreLabel: "segundos",
     coinsFor: (s) => Math.min(s, 120),
   },
+  {
+    slug: "xadrez",
+    title: "Xadrez",
+    description: "Jogue contra o computador, com um amigo no mesmo aparelho ou online.",
+    howTo: "Toque em uma peça e depois na casa de destino.",
+    category: "Tabuleiro",
+    emoji: "♞",
+    gradient: "linear-gradient(135deg,#3a3a52,#b58863)",
+    kind: "proprio",
+    href: "/xadrez",
+    hideRecord: true,
+    online: true,
+    scoreLabel: "",
+    // 0 = derrota, 1 = empate, 2/3/4 = vitória (fácil / médio / difícil ou online)
+    coinsFor: (s) => [0, 15, 25, 35, 50][Math.min(Math.max(s, 0), 4)],
+  },
 ];
 
-export const CATEGORIES: Category[] = ["Arcade", "Puzzle", "Ação"];
+export const CATEGORIES: Category[] = ["Arcade", "Puzzle", "Ação", "Tabuleiro"];
 
 export function getGame(slug: string) {
   return GAMES.find((g) => g.slug === slug);
+}
+
+export function gameHref(g: Game) {
+  return g.href ?? `/jogo/${g.slug}`;
 }

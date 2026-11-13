@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRewards } from "./RewardsProvider";
-import { GAMES } from "@/lib/games";
+import { GAMES, gameHref } from "@/lib/games";
 import { DAILY_GAME_COIN_CAP, SHOP, level, loginBonus, missionsFor, xpForLevel } from "@/lib/rewards";
 
 export function RewardsHub() {
@@ -117,9 +117,9 @@ export function RewardsHub() {
       <section className="card">
         <h2>Seus recordes</h2>
         <ul className="records">
-          {GAMES.map((g) => (
+          {GAMES.filter((g) => !g.hideRecord).map((g) => (
             <li key={g.slug}>
-              <Link href={`/jogo/${g.slug}`}>{g.emoji} {g.title}</Link>
+              <Link href={gameHref(g)}>{g.emoji} {g.title}</Link>
               <strong>{state.bestScores[g.slug] ?? 0} {g.scoreLabel}</strong>
             </li>
           ))}

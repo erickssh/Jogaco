@@ -151,6 +151,53 @@ p { line-height: 1.5; }
 .records li { display: flex; justify-content: space-between; padding: 10px 12px; border-radius: 10px; background: var(--bg-2); }
 .coming { background: linear-gradient(135deg, #3a1d8a, #251757); }
 
+/* ---------- Xadrez ---------- */
+.tag-online { left: auto; right: 10px; background: rgba(61, 220, 151, 0.85); color: #04281a; }
+.chess-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chess-layout { display: grid; grid-template-columns: minmax(0, 560px) minmax(240px, 1fr); gap: 16px; align-items: start; }
+.board-wrap { width: 100%; }
+.board { position: relative; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); width: 100%; aspect-ratio: 1; border-radius: 10px; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,0.4); user-select: none; }
+.sq { position: relative; border: 0; padding: 0; display: grid; place-items: center; cursor: pointer; min-width: 0; min-height: 0; overflow: hidden; }
+.sq.light { background: #eedfc4; }
+.sq.dark { background: #b07f5c; }
+.sq.last.light { background: #f3e18a; }
+.sq.last.dark { background: #d1b04f; }
+.sq.sel { box-shadow: inset 0 0 0 4px rgba(139, 92, 255, 0.9); }
+.sq.check { background: radial-gradient(circle, #ff4d4d 0%, #e02020 45%, transparent 75%), #b07f5c; }
+.pc { font-size: clamp(1.6rem, 8.5vw, 3.2rem); line-height: 1; pointer-events: none; font-family: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols 2", sans-serif; }
+.pw { color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000, 0 2px 3px rgba(0,0,0,0.5); }
+.pb { color: #1d1530; text-shadow: 0 0 1px #fff, 0 2px 3px rgba(0,0,0,0.35); }
+.hint { position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(40, 20, 80, 0.35); pointer-events: none; }
+.hint.cap { width: 90%; height: 90%; background: transparent; border: 5px solid rgba(40, 20, 80, 0.35); }
+.coord { position: absolute; font-size: 0.65rem; font-weight: 800; opacity: 0.7; pointer-events: none; }
+.coord.rank { top: 2px; left: 3px; }
+.coord.file { bottom: 1px; right: 4px; }
+.sq.light .coord { color: #b07f5c; }
+.sq.dark .coord { color: #eedfc4; }
+.promo { position: absolute; inset: 0; background: rgba(10, 5, 30, 0.85); display: grid; place-content: center; gap: 12px; text-align: center; font-weight: 800; z-index: 2; }
+.promo div { display: flex; gap: 8px; }
+.promo div button { width: 64px; height: 64px; border-radius: 12px; border: 0; background: #eedfc4; display: grid; place-items: center; }
+.promo .pc { font-size: 2.6rem; }
+.chess-side { display: grid; gap: 14px; }
+.chess-status { font-weight: 800; font-size: 1.1rem; padding: 12px; border-radius: 12px; background: var(--bg-2); text-align: center; }
+.chess-status.turn { background: rgba(61, 220, 151, 0.15); color: var(--ok); }
+.chess-status.over { background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #2a1300; }
+.chess-opts { display: grid; gap: 10px; }
+.chess-opts label, .field { display: grid; gap: 6px; font-weight: 700; font-size: 0.9rem; }
+.chess-opts select { padding: 8px; border-radius: 10px; background: var(--bg-2); color: var(--text); border: 1px solid rgba(255,255,255,0.1); font: inherit; }
+.chess-side .row { justify-content: flex-start; flex-wrap: wrap; }
+.movelist { list-style: none; margin: 0; padding: 8px; max-height: 220px; overflow-y: auto; background: var(--bg-2); border-radius: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; }
+.movelist li { display: grid; grid-template-columns: 36px 1fr 1fr; padding: 2px 4px; }
+.movelist li:nth-child(odd) { background: rgba(255,255,255,0.03); }
+.movelist li.muted { display: block; font-family: inherit; }
+.mn { color: var(--muted); }
+.player-tag { padding: 8px 4px; font-weight: 700; color: var(--muted); }
+.player-tag.me { color: var(--text); }
+.earned-line { margin: 0; text-align: center; font-weight: 900; color: var(--gold); font-size: 1.2rem; }
+.error { color: #ff7a7a; font-weight: 700; margin: 0; }
+.field { margin: 12px 0; }
+.chess-page .two-col .btn { justify-self: start; }
+
 /* ---------- Toast / footer ---------- */
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #2a1300; padding: 12px 20px; border-radius: 999px; font-weight: 800; box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 50; animation: pop .25s ease-out; }
 @keyframes pop { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
@@ -158,7 +205,7 @@ p { line-height: 1.5; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 760px) {
-  .hero, .two-col, .game-info { grid-template-columns: 1fr; }
+  .hero, .two-col, .game-info, .chess-layout { grid-template-columns: 1fr; }
   .nav a { padding: 8px; font-size: 0.9rem; }
   .pill.streak { display: none; }
   .logo span:last-child { display: none; }

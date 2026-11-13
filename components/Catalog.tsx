@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CATEGORIES, GAMES, Category } from "@/lib/games";
+import { CATEGORIES, GAMES, Category, gameHref } from "@/lib/games";
 import { useRewards } from "./RewardsProvider";
 
 export function Catalog() {
@@ -44,16 +44,17 @@ export function Catalog() {
       ) : (
         <div className="grid">
           {list.map((g) => (
-            <Link key={g.slug} href={`/jogo/${g.slug}`} className="tile">
+            <Link key={g.slug} href={gameHref(g)} className="tile">
               <div className="thumb" style={{ background: g.gradient }}>
                 <span className="thumb-emoji">{g.emoji}</span>
                 {g.kind === "proprio" && <span className="tag">🪙 Vale moedas</span>}
+                {g.online && <span className="tag tag-online">🌐 Online</span>}
               </div>
               <div className="tile-body">
                 <div className="tile-title">{g.title}</div>
                 <div className="tile-meta">
                   <span>{g.category}</span>
-                  {ready && state.bestScores[g.slug] ? <span>Recorde: {state.bestScores[g.slug]}</span> : null}
+                  {ready && !g.hideRecord && state.bestScores[g.slug] ? <span>Recorde: {state.bestScores[g.slug]}</span> : null}
                 </div>
               </div>
             </Link>

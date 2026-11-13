@@ -92,7 +92,9 @@ const POOL: Mission[] = [
   { id: "memory80", title: "Faça 80 pontos em Memória Mágica", reward: 50, target: 80, progress: (d) => d.perGame["memoria-magica"]?.best ?? 0 },
   { id: "dodge30", title: "Sobreviva 30s em Esquiva Espacial", reward: 40, target: 30, progress: (d) => d.perGame["esquiva-espacial"]?.best ?? 0 },
   { id: "earn50", title: "Ganhe 50 moedas jogando", reward: 25, target: 50, progress: (d) => d.coinsFromGames },
-  { id: "all3", title: "Jogue os 3 jogos hoje", reward: 50, target: 3, progress: (d) => Object.keys(d.perGame).length },
+  { id: "all3", title: "Jogue 3 jogos diferentes hoje", reward: 50, target: 3, progress: (d) => Object.keys(d.perGame).length },
+  { id: "chess1", title: "Termine uma partida de xadrez", reward: 30, target: 1, progress: (d) => d.perGame["xadrez"]?.plays ?? 0 },
+  { id: "chesswin", title: "Vença uma partida de xadrez", reward: 60, target: 1, progress: (d) => ((d.perGame["xadrez"]?.best ?? 0) >= 2 ? 1 : 0) },
 ];
 
 function hash(str: string) {

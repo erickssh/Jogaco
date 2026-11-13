@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { GAMES, getGame } from "@/lib/games";
+import { notFound, redirect } from "next/navigation";
+import { GAMES, gameHref, getGame } from "@/lib/games";
 import { GamePlayer } from "@/components/GamePlayer";
 
 export function generateStaticParams() {
-  return GAMES.map((g) => ({ slug: g.slug }));
+  return GAMES.filter((g) => !g.href).map((g) => ({ slug: g.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
@@ -17,6 +17,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const game = getGame(slug);
   if (!game) notFound();
+  if (game.href) redirect(game.href);
 
   const others = GAMES.filter((g) => g.slug !== slug);
 
@@ -36,7 +37,7 @@ export default async function GamePage({ params }: { params: Promise<{ slug: str
           <ul className="others">
             {others.map((g) => (
               <li key={g.slug}>
-                <Link href={`/jogo/${g.slug}`}>{g.emoji} {g.title}</Link>
+                <Link href={gameHref(g)}>{g.emoji} {g.title}</Link>
               </li>
             ))}
           </ul>

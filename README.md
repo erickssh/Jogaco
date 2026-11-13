@@ -46,6 +46,25 @@ lib/
 1. Crie o componente em `components/games/` recebendo `onGameOver(score)`.
 2. Cadastre em `lib/games.ts` e em `COMPONENTS` dentro de `components/GamePlayer.tsx`.
 
+## Xadrez ♞
+
+Página `/xadrez` com 3 modos:
+- **Contra o computador** (fácil / médio / difícil) — vale moedas
+- **2 jogadores no mesmo aparelho**
+- **Online** — partidas em tempo real com link de convite (precisa do Supabase)
+
+No modo online, todo lance passa pelo servidor (`app/api/xadrez/route.ts`), que confere
+o jogador, a vez e a legalidade do lance. O navegador só lê as partidas.
+
+### Ativar o xadrez online
+1. Crie um projeto grátis em [supabase.com](https://supabase.com).
+2. No Supabase, abra **SQL Editor → New query**, cole o conteúdo de `supabase/schema.sql` e clique em **Run**.
+3. Em **Project Settings → API**, copie a URL e as chaves.
+4. **No computador:** copie `.env.example` para `.env.local` e preencha.
+5. **Na Vercel:** Settings → Environment Variables → cadastre as 3 variáveis e faça um Redeploy.
+
+> A chave `SUPABASE_SERVICE_ROLE_KEY` é secreta: nunca coloque no GitHub nem compartilhe.
+
 ## Próximos passos
 
 1. **Contas e backend (Supabase)**: hoje o progresso fica no navegador (`localStorage`), o que é fácil de burlar. Antes de qualquer recompensa com valor real, mover o registro de partidas e moedas para o servidor, com validação.
