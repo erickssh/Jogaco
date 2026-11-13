@@ -18,7 +18,11 @@ export type PresencaSala = {
   time: string[];
 };
 
-export type PresencaLobby = { codigo: string; nome: string; criado: number };
+export type ModoOnline = "acao" | "tatica";
+export type PresencaLobby = { codigo: string; nome: string; criado: number; modo?: ModoOnline };
+
+/** Endereço da sala conforme o modo. */
+export const urlSala = (codigo: string, modo: ModoOnline = "tatica") => (modo === "acao" ? `/lendas/duelo/${codigo}` : `/lendas/sala/${codigo}`);
 
 export function meuPid() {
   try {

@@ -158,7 +158,7 @@ export function OnlineRoom({ codigo }: { codigo: string }) {
       const lb = sb.channel(LOBBY_CHANNEL, { config: { presence: { key: pid } } });
       lobby.current = lb;
       lb.subscribe(async (status) => {
-        if (status === "SUBSCRIBED" && faseRef.current === "esperando") await lb.track({ codigo, nome: meuNome, criado: Date.now() });
+        if (status === "SUBSCRIBED" && faseRef.current === "esperando") await lb.track({ codigo, nome: meuNome, criado: Date.now(), modo: "tatica" });
       });
     }
 
@@ -358,7 +358,7 @@ export function OnlineRoom({ codigo }: { codigo: string }) {
   );
 }
 
-function Aviso({ emoji, titulo, texto }: { emoji: string; titulo: string; texto: string }) {
+export function Aviso({ emoji, titulo, texto }: { emoji: string; titulo: string; texto: string }) {
   return (
     <div className="card sala-espera">
       <div className="overlay-emoji">{emoji}</div>
@@ -369,7 +369,7 @@ function Aviso({ emoji, titulo, texto }: { emoji: string; titulo: string; texto:
   );
 }
 
-function EscolherTime({ owned, onPronto }: { owned: string[]; onPronto: (t: string[]) => void }) {
+export function EscolherTime({ owned, onPronto }: { owned: string[]; onPronto: (t: string[]) => void }) {
   const [sel, setSel] = useState<string[]>([]);
   const minhas = LENDAS.filter((l) => possuiLenda(owned, l));
   const ok = () => {

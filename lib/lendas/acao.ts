@@ -1,7 +1,7 @@
 // Modo AÇÃO da Arena das Lendas: o jogador move a lenda, mira e desvia.
 // Lógica pura (sem React), pronta para rodar no navegador ou num servidor no futuro.
 
-import { EFEITOS, EfeitoId, Golpe, IMUNIDADES } from "./data";
+import { EFEITOS, EfeitoId, Golpe, IMUNIDADES, getLenda } from "./data";
 import { Lado, Lutador, Nivel, calcularDano, novoLutador, recargaGolpe, vantagem } from "./engine";
 
 // ---------- Arena ----------
@@ -51,12 +51,13 @@ const raioAoRedor = (g: Golpe) => 115 + g.poder / 4;
 const raioProj = (g: Golpe, i: number) => (i === 0 ? 9 : 12 + g.poder / 12);
 
 // ---------- Estado ----------
-export type Proj = { id: number; lado: Lado; x: number; y: number; vx: number; vy: number; r: number; resta: number; g: Golpe };
+/** ref = "idDaLenda:índiceDoGolpe" (para reconstruir o golpe do outro lado da rede). */
+export type Proj = { id: number; lado: Lado; x: number; y: number; vx: number; vy: number; r: number; resta: number; g: Golpe; ref: string };
 export type Zona = {
   id: number; lado: Lado; tipo: "area" | "aoRedor" | "feixe"; x: number; y: number; r: number;
-  dx?: number; dy?: number; comp?: number; largura?: number; t: number; total: number; g: Golpe; explodiu: number; segue: boolean;
+  dx?: number; dy?: number; comp?: number; largura?: number; t: number; total: number; g: Golpe; ref: string; explodiu: number; segue: boolean;
 };
-export type Dash = { vx: number; vy: number; t: number; g: Golpe; acertou: boolean };
+export type Dash = { vx: number; vy: number; t: number; g: Golpe; ref: string; acertou: boolean };
 export type Flut = { id: number; x: number; y: number; texto: string; tipo: "dano" | "super" | "fraco" | "cura" | "info"; t: number };
 
 export type AcaoBatalha = {
@@ -196,6 +197,7 @@ function usar(b: AcaoBatalha, lado: Lado, i: number) {
   const dir = norm({ x: b.mira[lado].x - p.x, y: b.mira[lado].y - p.y });
   const d = dir.x === 0 && dir.y === 0 ? { x: 0, y: lado === 0 ? -1 : 1 } : dir;
   if (i !== 0) aviso(b, `${lado === 0 ? "🔵" : "🔴"} ${eu.lenda.nome}: ${g.nome}`);
+  const ref = `${eu.lenda.id}:${i}`;
 
   switch (forma) {
     case "si":
@@ -203,23 +205,23 @@ function usar(b: AcaoBatalha, lado: Lado, i: number) {
     case "projetil": {
       const r = raioProj(g, i);
       const v = i === 0 ? 640 : 500;
-      b.proj.push({ id: ++b.seq, lado, x: p.x + d.x * (RAIO + r), y: p.y + d.y * (RAIO + r), vx: d.x * v, vy: d.y * v, r, resta: alcanceDe(g, i), g });
+      b.proj.push({ id: ++b.seq, lado, x: p.x + d.x * (RAIO + r), y: p.y + d.y * (RAIO + r), vx: d.x * v, vy: d.y * v, r, resta: alcanceDe(g, i), g, ref });
       break;
     }
     case "feixe":
-      b.zonas.push({ id: ++b.seq, lado, tipo: "feixe", x: p.x, y: p.y, r: 0, dx: d.x, dy: d.y, comp: 460, largura: 38, t: 0.45, total: 0.45, g, explodiu: 0, segue: false });
+      b.zonas.push({ id: ++b.seq, lado, tipo: "feixe", x: p.x, y: p.y, r: 0, dx: d.x, dy: d.y, comp: 460, largura: 38, t: 0.45, total: 0.45, g, ref, explodiu: 0, segue: false });
       break;
     case "area": {
       const alvo = b.mira[lado];
       const a = Math.min(dist(p, alvo), 340);
-      b.zonas.push({ id: ++b.seq, lado, tipo: "area", x: p.x + d.x * a, y: p.y + d.y * a, r: raioArea(g), t: 0.75, total: 0.75, g, explodiu: 0, segue: false });
+      b.zonas.push({ id: ++b.seq, lado, tipo: "area", x: p.x + d.x * a, y: p.y + d.y * a, r: raioArea(g), t: 0.75, total: 0.75, g, ref, explodiu: 0, segue: false });
       break;
     }
     case "aoRedor":
-      b.zonas.push({ id: ++b.seq, lado, tipo: "aoRedor", x: p.x, y: p.y, r: raioAoRedor(g), t: 0.3, total: 0.3, g, explodiu: 0, segue: true });
+      b.zonas.push({ id: ++b.seq, lado, tipo: "aoRedor", x: p.x, y: p.y, r: raioAoRedor(g), t: 0.3, total: 0.3, g, ref, explodiu: 0, segue: true });
       break;
     case "investida":
-      b.dash[lado] = { vx: d.x * 950, vy: d.y * 950, t: 0.28, g, acertou: false };
+      b.dash[lado] = { vx: d.x * 950, vy: d.y * 950, t: 0.28, g, ref, acertou: false };
       break;
   }
   g.emSi?.forEach((ef) => aplicarEfeito(b, lado, ef));
@@ -373,6 +375,125 @@ export function passo(b: AcaoBatalha, dt: number, cmds: [Comando, Comando]) {
   b.zonas = b.zonas.filter((z) => z.t > 0 || z.explodiu > 0);
 
   verificarDerrotas(b);
+}
+
+// ---------- Rede (duelos online) ----------
+const r1 = (n: number) => Math.round(n * 10) / 10;
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+function golpeDaRef(ref: string): Golpe {
+  const [id, i] = ref.split(":");
+  const l = getLenda(id);
+  if (!l) throw new Error(`ref inválida: ${ref}`);
+  return l.golpes[Number(i)];
+}
+
+export type RetratoAcao = {
+  t: { id: string; v: number; vm: number; r: number[]; e: Lutador["efeitos"]; c: boolean }[][];
+  a: [number, number];
+  p: [Vec, Vec];
+  ve: [Vec, Vec];
+  m: [Vec, Vec];
+  d: (Omit<Dash, "g"> | null)[];
+  pj: Omit<Proj, "g">[];
+  z: Omit<Zona, "g">[];
+  f: Flut[];
+  av: AcaoBatalha["avisos"];
+  et: [number, number];
+  tr: [number, number];
+  pi: [number, number];
+  tempo: number;
+  venc: Lado | null;
+  seq: number;
+};
+
+const vec = (v: Vec): Vec => ({ x: r1(v.x), y: r1(v.y) });
+
+/** Fotografia compacta da batalha para enviar pela rede. */
+export function exportarAcao(b: AcaoBatalha): RetratoAcao {
+  return {
+    t: b.times.map((ls) => ls.map((l) => ({ id: l.lenda.id, v: r1(l.vida), vm: l.vidaMax, r: l.recargas.map(r2), e: l.efeitos, c: l.caiu }))),
+    a: [...b.ativo] as [number, number],
+    p: [vec(b.pos[0]), vec(b.pos[1])],
+    ve: [vec(b.vel[0]), vec(b.vel[1])],
+    m: [vec(b.mira[0]), vec(b.mira[1])],
+    d: b.dash.map((d) => (d ? { vx: r1(d.vx), vy: r1(d.vy), t: r2(d.t), ref: d.ref, acertou: d.acertou } : null)),
+    pj: b.proj.map(({ g: _g, ...p }) => ({ ...p, x: r1(p.x), y: r1(p.y), vx: r1(p.vx), vy: r1(p.vy) })),
+    z: b.zonas.map(({ g: _g, ...z }) => ({ ...z, x: r1(z.x), y: r1(z.y), t: r2(z.t), explodiu: r2(z.explodiu) })),
+    f: b.flut,
+    av: b.avisos,
+    et: [r2(b.esperaTroca[0]), r2(b.esperaTroca[1])],
+    tr: [r2(b.trava[0]), r2(b.trava[1])],
+    pi: [r2(b.pisca[0]), r2(b.pisca[1])],
+    tempo: r2(b.tempo),
+    venc: b.vencedor,
+    seq: b.seq,
+  };
+}
+
+/** Reconstrói a batalha a partir de uma fotografia recebida. */
+export function importarAcao(r: RetratoAcao): AcaoBatalha {
+  const times = r.t.map((ls) =>
+    ls.map((x) => {
+      const l = novoLutador(x.id);
+      l.vidaMax = x.vm;
+      l.vida = x.v;
+      l.recargas = x.r as Lutador["recargas"];
+      l.efeitos = x.e ?? {};
+      l.caiu = x.c;
+      return l;
+    }),
+  ) as [Lutador[], Lutador[]];
+  return {
+    times,
+    ativo: r.a,
+    pos: r.p,
+    vel: r.ve,
+    mira: r.m,
+    dash: r.d.map((d) => (d ? { ...d, g: golpeDaRef(d.ref) } : null)) as [Dash | null, Dash | null],
+    proj: r.pj.map((p) => ({ ...p, g: golpeDaRef(p.ref) })),
+    zonas: r.z.map((z) => ({ ...z, g: golpeDaRef(z.ref) })),
+    flut: r.f,
+    avisos: r.av,
+    esperaTroca: r.et,
+    trava: r.tr,
+    pisca: r.pi,
+    tempo: r.tempo,
+    vencedor: r.venc,
+    seq: r.seq,
+  };
+}
+
+/** Avança só o visual (projéteis, cronômetros) entre uma fotografia e outra, sem decidir nada. */
+export function avancarVisualAcao(b: AcaoBatalha, dt: number) {
+  b.flut.forEach((f) => (f.t += dt));
+  b.avisos.forEach((a) => (a.t += dt));
+  if (b.vencedor !== null) return;
+  b.tempo += dt;
+  for (const lado of [0, 1] as Lado[]) {
+    b.esperaTroca[lado] = Math.max(0, b.esperaTroca[lado] - dt);
+    b.trava[lado] = Math.max(0, b.trava[lado] - dt);
+    b.pisca[lado] = Math.max(0, b.pisca[lado] - dt);
+    for (const l of b.times[lado]) l.recargas = l.recargas.map((x) => Math.max(0, x - dt)) as Lutador["recargas"];
+    const d = b.dash[lado];
+    if (d) {
+      b.pos[lado] = { x: b.pos[lado].x + d.vx * dt, y: b.pos[lado].y + d.vy * dt };
+      if ((d.t -= dt) <= 0) b.dash[lado] = null;
+    } else {
+      // segue andando na última velocidade conhecida (suaviza a imagem)
+      const p = { x: b.pos[lado].x + b.vel[lado].x * dt, y: b.pos[lado].y + b.vel[lado].y * dt };
+      limitar(p);
+      b.pos[lado] = p;
+    }
+  }
+  for (const p of b.proj) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+  for (const z of b.zonas) {
+    if (z.explodiu > 0) z.explodiu = Math.max(0, z.explodiu - dt);
+    else z.t = Math.max(0, z.t - dt);
+  }
 }
 
 // ---------- Computador ----------
