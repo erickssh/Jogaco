@@ -53,10 +53,16 @@ export async function POST(req: Request) {
       .insert({ fen, white_name: cleanName(body.name) })
       .select("id")
       .single();
-    if (error || !game) return err("Não foi possível criar a partida.", 500);
+    if (error || !game) {
+      console.error("[xadrez] create:", error);
+      return err("Não foi possível criar a partida.", 500);
+    }
     const t = token();
     const { error: e2 } = await db.from("chess_seats").insert({ game_id: game.id, color: "w", token: t });
-    if (e2) return err("Não foi possível reservar o lugar.", 500);
+    if (e2) {
+      console.error("[xadrez] seat:", e2);
+      return err("Não foi possível reservar o lugar.", 500);
+    }
     return NextResponse.json({ id: game.id, color: "w", token: t });
   }
 
