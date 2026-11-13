@@ -5,6 +5,7 @@ import { ELEMENTOS, LENDAS, Lenda, VANTAGENS, Elemento } from "@/lib/lendas/data
 import { Nivel } from "@/lib/lendas/engine";
 import { useRewards } from "../RewardsProvider";
 import { Battle } from "./Battle";
+import { ActionBattle } from "./ActionBattle";
 import { OnlineLobby } from "./OnlineLobby";
 import { TEAM_KEY } from "@/lib/lendas/online";
 
@@ -16,7 +17,8 @@ export function LendasGame() {
   const { state, ready, unlock } = useRewards();
   const [time, setTime] = useState<string[]>([]);
   const [nivel, setNivel] = useState<Nivel>(2);
-  const [batalha, setBatalha] = useState<{ meu: string[]; deles: string[]; nivel: Nivel; id: number } | null>(null);
+  const [modo, setModo] = useState<"acao" | "tatica">("acao");
+  const [batalha, setBatalha] = useState<{ meu: string[]; deles: string[]; nivel: Nivel; id: number; modo: "acao" | "tatica" } | null>(null);
   const [detalhe, setDetalhe] = useState<Lenda | null>(null);
 
   const [carregado, setCarregado] = useState(false);
@@ -50,12 +52,13 @@ export function LendasGame() {
     // Adversário: lendas aleatórias (no nível difícil, podem vir as raras)
     const pool = nivel === 3 ? LENDAS : LENDAS.filter((l) => l.preco <= (nivel === 2 ? 350 : 0));
     const deles = [...pool].sort(() => Math.random() - 0.5).slice(0, TAMANHO_TIME).map((l) => l.id);
-    setBatalha({ meu: timeValido, deles, nivel, id: Date.now() });
+    setBatalha({ meu: timeValido, deles, nivel, id: Date.now(), modo });
   };
 
   if (batalha) {
+    const Comp = batalha.modo === "acao" ? ActionBattle : Battle;
     return (
-      <Battle
+      <Comp
         key={batalha.id}
         meu={batalha.meu}
         deles={batalha.deles}
@@ -73,6 +76,14 @@ export function LendasGame() {
           <div>
             <h2>Monte seu time ({timeValido.length}/{TAMANHO_TIME})</h2>
             <p className="muted small">Toque nas lendas para escolher. As com 🔒 podem ser liberadas com moedas.</p>
+            <div className="modo-escolha" role="tablist" aria-label="Modo de batalha">
+              <button className={`chip ${modo === "acao" ? "on" : ""}`} onClick={() => setModo("acao")} role="tab" aria-selected={modo === "acao"}>
+                🎮 Ação — você move e mira
+              </button>
+              <button className={`chip ${modo === "tatica" ? "on" : ""}`} onClick={() => setModo("tatica")} role="tab" aria-selected={modo === "tatica"}>
+                🎴 Tática — só os golpes
+              </button>
+            </div>
           </div>
           <div className="prep-actions">
             <select value={nivel} onChange={(e) => setNivel(Number(e.target.value) as Nivel)} aria-label="Dificuldade">

@@ -285,6 +285,38 @@ p { line-height: 1.5; }
 .mini-vida span { display: block; height: 100%; background: var(--ok); }
 .arena-log { list-style: none; margin: 0; padding: 8px 12px; min-height: 96px; border-radius: 10px; background: rgba(0,0,0,0.25); font-size: 0.85rem; display: grid; align-content: start; gap: 2px; }
 .overlay-full { position: absolute; inset: 0; border-radius: var(--radius); background: rgba(5, 2, 15, 0.6); display: grid; place-items: center; z-index: 5; }
+/* Modo ação */
+.acao-canvas-box { position: relative; display: grid; place-items: center; }
+.acao-canvas { display: block; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); touch-action: none; cursor: none; user-select: none; -webkit-user-select: none; }
+.time-strip { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: linear-gradient(90deg, color-mix(in srgb, var(--el) 22%, transparent), rgba(0,0,0,0.15)); }
+.time-strip.dele { border-left: 4px solid #ff5d5d; }
+.time-strip.meu { border-left: 4px solid #5ad1ff; }
+.ts-emoji { font-size: 1.8rem; }
+.ts-info { flex: 1; display: grid; gap: 4px; min-width: 0; }
+.ts-nome { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
+.ts-nome .efeitos { min-height: 0; }
+.time-strip .vida-bar { height: 10px; }
+.acao .golpes { grid-template-columns: repeat(4, 1fr); }
+.acao-ajuda { margin: 0; text-align: center; }
+.so-toque { display: none; }
+@media (pointer: coarse) { .so-pc { display: none; } .so-toque { display: inline; } }
+.arena { scroll-margin-top: 72px; }
+@media (max-width: 760px) {
+  .acao { gap: 8px; padding: 10px; }
+  .acao .golpes { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .acao .golpe { padding: 10px 6px; border-left-width: 4px; min-height: 58px; }
+  .acao .golpe-nome { font-size: 0.72rem; line-height: 1.15; }
+  .acao .golpe-info { display: none; }
+  .acao .golpe-rec { right: 50%; transform: translate(50%, -50%); font-size: 0.85rem; }
+  .acao .time-strip { padding: 6px 10px; }
+  .acao .ts-emoji { font-size: 1.4rem; }
+  .acao .ts-nome { font-size: 0.8rem; }
+  .acao .reserva { width: 54px; padding: 6px 4px; font-size: 1.3rem; }
+  .acao .arena-bar .btn { padding: 4px 10px; }
+}
+.modo-escolha { display: flex; gap: 8px; flex-wrap: wrap; }
+.modo-escolha .chip { padding: 10px 14px; }
+
 .online-lobby h3 { margin: 16px 0 8px; font-size: 1rem; }
 .online-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .online-row .field { flex: 1 1 220px; margin: 0; }

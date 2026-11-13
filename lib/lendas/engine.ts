@@ -38,7 +38,7 @@ export type Batalha = {
   seq: number;
 };
 
-function novoLutador(id: string): Lutador {
+export function novoLutador(id: string): Lutador {
   const lenda = getLenda(id);
   if (!lenda) throw new Error(`Lenda desconhecida: ${id}`);
   const vidaMax = lenda.vida * VIDA_MULT;

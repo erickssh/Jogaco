@@ -166,7 +166,7 @@ export const LENDAS: Lenda[] = [
   {
     id: "uirapuru", nome: "Uirapuru", emoji: "🐦", elemento: "vento", preco: 350,
     descricao: "Pássaro raro cujo canto traz sorte.",
-    vida: 96, ataque: 61, defesa: 42, velocidade: 90,
+    vida: 92, ataque: 60, defesa: 42, velocidade: 90,
     golpes: [
       basico("vento", "Rajada"),
       { nome: "Canto da Sorte", elemento: "espirito", poder: 0, recarga: 12, emSi: ["furia"], cura: 0.1 },
