@@ -159,8 +159,83 @@ export function trocar(b: Batalha, lado: Lado, idx: number, forcado = false): bo
   b.ativo[lado] = idx;
   b.esperaTroca[lado] = TROCA_ESPERA;
   b.trava[lado] = TRAVA_ACAO;
-  evento(b, { lado, texto: `${lado === 0 ? "Vai" : "Adversário chamou"}: ${b.times[lado][idx].lenda.nome}!` });
+  evento(b, { lado, texto: `${b.times[lado][idx].lenda.nome} entrou em campo!` });
   return true;
+}
+
+// ---------- Sincronização (batalhas online) ----------
+
+export type Retrato = {
+  t: [{ id: string; v: number; r: number[]; e: Lutador["efeitos"]; c: boolean }[], { id: string; v: number; r: number[]; e: Lutador["efeitos"]; c: boolean }[]];
+  a: [number, number];
+  et: [number, number];
+  tr: [number, number];
+  tempo: number;
+  venc: Lado | null;
+  ev: Evento[];
+  seq: number;
+};
+
+/** Converte a batalha num objeto pequeno para enviar pela rede. */
+export function exportar(b: Batalha): Retrato {
+  const lado = (ls: Lutador[]) =>
+    ls.map((l) => ({ id: l.lenda.id, v: Math.round(l.vida * 10) / 10, r: l.recargas.map((x) => Math.round(x * 100) / 100), e: l.efeitos, c: l.caiu }));
+  return {
+    t: [lado(b.times[0]), lado(b.times[1])],
+    a: [...b.ativo] as [number, number],
+    et: [...b.esperaTroca] as [number, number],
+    tr: [...b.trava] as [number, number],
+    tempo: b.tempo,
+    venc: b.vencedor,
+    ev: b.eventos.slice(-12),
+    seq: b.seq,
+  };
+}
+
+/** Reconstrói a batalha a partir de um retrato recebido. */
+export function importar(r: Retrato): Batalha {
+  const lado = (ls: Retrato["t"][0]) =>
+    ls.map((x) => {
+      const l = novoLutador(x.id);
+      l.vida = x.v;
+      l.recargas = x.r as Lutador["recargas"];
+      l.efeitos = x.e ?? {};
+      l.caiu = x.c;
+      return l;
+    });
+  return {
+    times: [lado(r.t[0]), lado(r.t[1])],
+    ativo: r.a,
+    esperaTroca: r.et,
+    trava: r.tr,
+    tempo: r.tempo,
+    vencedor: r.venc,
+    eventos: r.ev,
+    seq: r.seq,
+  };
+}
+
+/** Encerra a batalha (ex.: adversário saiu da sala). */
+export function encerrar(b: Batalha, vencedor: Lado, motivo: string) {
+  if (b.vencedor !== null) return;
+  b.vencedor = vencedor;
+  evento(b, { lado: vencedor, texto: motivo });
+}
+
+/** Só anda os cronômetros (para a tela de quem não comanda a batalha ficar suave entre retratos). */
+export function avancarVisual(b: Batalha, dt: number) {
+  if (b.vencedor !== null) return;
+  b.tempo += dt;
+  for (const lado of [0, 1] as Lado[]) {
+    b.esperaTroca[lado] = Math.max(0, b.esperaTroca[lado] - dt);
+    b.trava[lado] = Math.max(0, b.trava[lado] - dt);
+    for (const l of b.times[lado]) {
+      l.recargas = l.recargas.map((r) => Math.max(0, r - dt)) as Lutador["recargas"];
+      for (const k of Object.keys(l.efeitos) as EfeitoId[]) {
+        l.efeitos[k] = Math.max(0, (l.efeitos[k] ?? 0) - dt);
+      }
+    }
+  }
 }
 
 function verificarDerrotas(b: Batalha) {

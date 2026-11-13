@@ -5,8 +5,9 @@ import { ELEMENTOS, LENDAS, Lenda, VANTAGENS, Elemento } from "@/lib/lendas/data
 import { Nivel } from "@/lib/lendas/engine";
 import { useRewards } from "../RewardsProvider";
 import { Battle } from "./Battle";
+import { OnlineLobby } from "./OnlineLobby";
+import { TEAM_KEY } from "@/lib/lendas/online";
 
-const TEAM_KEY = "jogaco:lendas:time";
 const TAMANHO_TIME = 3;
 
 export const possuiLenda = (owned: string[], l: Lenda) => l.preco === 0 || owned.includes(`lenda:${l.id}`);
@@ -117,6 +118,8 @@ export function LendasGame() {
           })}
         </div>
       </section>
+
+      <OnlineLobby timePronto={timeValido.length === TAMANHO_TIME} />
 
       <TabelaTipos />
 

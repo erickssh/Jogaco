@@ -285,6 +285,15 @@ p { line-height: 1.5; }
 .mini-vida span { display: block; height: 100%; background: var(--ok); }
 .arena-log { list-style: none; margin: 0; padding: 8px 12px; min-height: 96px; border-radius: 10px; background: rgba(0,0,0,0.25); font-size: 0.85rem; display: grid; align-content: start; gap: 2px; }
 .overlay-full { position: absolute; inset: 0; border-radius: var(--radius); background: rgba(5, 2, 15, 0.6); display: grid; place-items: center; z-index: 5; }
+.online-lobby h3 { margin: 16px 0 8px; font-size: 1rem; }
+.online-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.online-row .field { flex: 1 1 220px; margin: 0; }
+.sala-espera { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 32px 20px; }
+.sala-codigo { font-size: 1.2rem; margin: 0; }
+.sala-codigo strong { letter-spacing: 3px; color: var(--gold); }
+.painel-rotulo { font-size: 0.75rem; color: var(--muted); font-weight: 700; }
+.contagem { background: transparent; backdrop-filter: none; }
+.contagem-num { font-size: 5rem; font-weight: 900; color: var(--gold); text-shadow: 0 6px 20px rgba(0,0,0,0.6); animation: pop .4s ease-out; }
 @media (pointer: coarse) { .golpe kbd, .reserva kbd { display: none; } }
 @media (max-width: 760px) {
   .avatar-lenda { width: 72px; height: 72px; font-size: 3rem; }
