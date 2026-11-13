@@ -198,6 +198,102 @@ p { line-height: 1.5; }
 .field { margin: 12px 0; }
 .chess-page .two-col .btn { justify-self: start; }
 
+/* ---------- Arena das Lendas ---------- */
+.lendas-prep { display: grid; gap: 16px; }
+.prep-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.prep-actions { display: flex; gap: 10px; align-items: center; }
+.prep-actions select { padding: 12px; border-radius: 12px; background: var(--bg-2); color: var(--text); border: 1px solid rgba(255,255,255,0.1); font: inherit; font-weight: 700; }
+.lenda-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.lenda-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 8px 10px; border-radius: 14px; border: 2px solid transparent; color: var(--text); background: linear-gradient(160deg, color-mix(in srgb, var(--el) 35%, transparent), var(--bg-2) 70%); transition: transform .12s, border-color .12s; }
+.lenda-card:hover { transform: translateY(-2px); }
+.lenda-card.on { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,200,61,0.25); }
+.lenda-card.locked { filter: grayscale(0.7); opacity: 0.75; }
+.lenda-emoji { font-size: 2.6rem; line-height: 1.1; }
+.lenda-nome { font-weight: 800; font-size: 0.92rem; text-align: center; }
+.lenda-preco { font-size: 0.8rem; font-weight: 800; color: var(--gold); }
+.lenda-pos { position: absolute; top: 6px; left: 8px; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: #2a1300; font-weight: 900; font-size: 0.8rem; display: grid; place-items: center; }
+.lenda-info { position: absolute; top: 6px; right: 8px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.35); font-size: 0.75rem; font-weight: 900; font-style: italic; display: grid; place-items: center; cursor: pointer; }
+.el-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; background: color-mix(in srgb, var(--el, #888) 30%, rgba(0,0,0,0.3)); white-space: nowrap; }
+.tipos summary { cursor: pointer; }
+.tipos-lista { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.tipos-lista li { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: var(--bg-2); font-size: 0.88rem; }
+
+.modal-bg { position: fixed; inset: 0; z-index: 40; background: rgba(5, 2, 15, 0.7); display: grid; place-items: center; padding: 16px; }
+.modal { position: relative; width: min(440px, 100%); max-height: 90vh; overflow-y: auto; display: grid; gap: 10px; border-top: 4px solid var(--el); }
+.modal-x { position: absolute; top: 8px; right: 10px; border: 0; background: transparent; color: var(--muted); font-size: 1.6rem; }
+.detalhe-top { display: flex; gap: 14px; align-items: center; }
+.detalhe-top p { margin: 6px 0 0; }
+.detalhe-emoji { font-size: 3.6rem; }
+.modal h3 { margin: 6px 0 0; font-size: 1rem; }
+.stat-row { display: grid; grid-template-columns: 90px 1fr 34px; gap: 8px; align-items: center; font-size: 0.85rem; }
+.stat-row strong { text-align: right; }
+.golpes-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.golpes-lista li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--bg-2); }
+
+.arena { position: relative; display: grid; gap: 12px; padding: 14px; border-radius: var(--radius); background: radial-gradient(800px 300px at 50% 0%, #2b1a66, transparent), var(--bg-2); border: 1px solid rgba(255,255,255,0.06); }
+.arena-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.campo { display: grid; gap: 4px; }
+.versus { text-align: center; font-weight: 900; color: var(--muted); letter-spacing: 4px; font-size: 0.8rem; }
+.painel { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 14px; background: linear-gradient(90deg, color-mix(in srgb, var(--el) 22%, transparent), rgba(0,0,0,0.15)); }
+.painel.dele { flex-direction: row-reverse; background: linear-gradient(270deg, color-mix(in srgb, var(--el) 22%, transparent), rgba(0,0,0,0.15)); }
+.painel-info { flex: 1; display: grid; gap: 6px; min-width: 0; }
+.painel-nome { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.perigo { font-size: 0.9rem; }
+.vida-bar { height: 14px; border-radius: 999px; background: rgba(0,0,0,0.4); overflow: hidden; }
+.vida-bar span { display: block; height: 100%; border-radius: 999px; transition: width .25s, background .25s; }
+.painel-sub { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.pontos { display: flex; gap: 4px; }
+.pontos i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); opacity: 0.6; }
+.pontos i.ativo { opacity: 1; box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
+.pontos i.morto { background: #ff5d5d; opacity: 0.4; }
+.efeitos { display: flex; gap: 4px; flex-wrap: wrap; min-height: 22px; }
+.efeito { font-size: 0.72rem; font-weight: 800; padding: 2px 6px; border-radius: 999px; }
+.efeito.ruim { background: rgba(255, 93, 93, 0.2); color: #ffb3b3; }
+.efeito.bom { background: rgba(61, 220, 151, 0.18); color: #9ff0cb; }
+.avatar-lenda { position: relative; width: 96px; height: 96px; flex: none; display: grid; place-items: center; font-size: 4rem; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--el) 45%, transparent), transparent 70%); }
+.avatar-lenda > span:first-child { animation: entra .35s ease-out, respira 2.4s ease-in-out .35s infinite; }
+.avatar-lenda.caido > span:first-child { filter: grayscale(1); opacity: 0.4; animation: none; }
+.avatar-lenda.travado > span:first-child { animation: treme .3s linear infinite; }
+@keyframes entra { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes respira { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes treme { 0%,100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
+.flut { position: absolute; top: 10%; left: 50%; font-size: 1.3rem; font-weight: 900; pointer-events: none; animation: sobe 1.1s ease-out forwards; text-shadow: 0 2px 4px rgba(0,0,0,0.7); white-space: nowrap; }
+.flut.dano { color: #fff; }
+.flut.super { color: #ffc83d; font-size: 1.6rem; }
+.flut.fraco { color: #b5a8d9; font-size: 1.1rem; }
+.flut.cura { color: var(--ok); }
+@keyframes sobe { from { transform: translate(-50%, 0) scale(1.2); opacity: 1; } to { transform: translate(-50%, -48px) scale(1); opacity: 0; } }
+
+.golpes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.golpe { position: relative; overflow: hidden; display: grid; gap: 2px; text-align: left; padding: 12px 12px 12px 14px; border-radius: 12px; border: 0; border-left: 5px solid var(--el); background: var(--card); color: var(--text); }
+.golpe::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--rec, 0%); background: rgba(0,0,0,0.45); transition: height .05s linear; pointer-events: none; }
+.golpe.pronto { background: color-mix(in srgb, var(--el) 22%, var(--card)); }
+.golpe.pronto:hover { filter: brightness(1.15); }
+.golpe:disabled { cursor: not-allowed; }
+.golpe-nome { font-weight: 800; }
+.golpe-info { font-size: 0.78rem; color: var(--muted); }
+.ef-sup { color: var(--gold); font-style: normal; font-weight: 800; }
+.ef-fra { color: #ff9b9b; font-style: normal; }
+.golpe-rec { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-weight: 900; z-index: 1; }
+.golpe kbd, .reserva kbd { position: absolute; top: 4px; right: 6px; font-size: 0.65rem; opacity: 0.45; font-family: inherit; }
+.golpe-rec ~ kbd { display: none; }
+.reservas { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reserva { position: relative; display: grid; justify-items: center; gap: 4px; width: 64px; padding: 8px 4px 6px; border-radius: 12px; border: 2px solid transparent; background: var(--card); font-size: 1.6rem; color: var(--text); }
+.reserva.em-campo { border-color: var(--gold); }
+.reserva:disabled:not(.em-campo) { opacity: 0.45; cursor: not-allowed; }
+.mini-vida { width: 44px; height: 5px; border-radius: 999px; background: rgba(0,0,0,0.4); overflow: hidden; }
+.mini-vida span { display: block; height: 100%; background: var(--ok); }
+.arena-log { list-style: none; margin: 0; padding: 8px 12px; min-height: 96px; border-radius: 10px; background: rgba(0,0,0,0.25); font-size: 0.85rem; display: grid; align-content: start; gap: 2px; }
+.overlay-full { position: absolute; inset: 0; border-radius: var(--radius); background: rgba(5, 2, 15, 0.6); display: grid; place-items: center; z-index: 5; }
+@media (pointer: coarse) { .golpe kbd, .reserva kbd { display: none; } }
+@media (max-width: 760px) {
+  .avatar-lenda { width: 72px; height: 72px; font-size: 3rem; }
+  .golpe { padding: 10px 10px 10px 12px; }
+  .golpe-nome { font-size: 0.88rem; }
+  .prep-actions { width: 100%; }
+  .prep-actions .btn { flex: 1; }
+}
+
 /* ---------- Toast / footer ---------- */
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: #2a1300; padding: 12px 20px; border-radius: 999px; font-weight: 800; box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 50; animation: pop .25s ease-out; }
 @keyframes pop { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }

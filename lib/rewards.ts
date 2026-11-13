@@ -93,6 +93,7 @@ const POOL: Mission[] = [
   { id: "dodge30", title: "Sobreviva 30s em Esquiva Espacial", reward: 40, target: 30, progress: (d) => d.perGame["esquiva-espacial"]?.best ?? 0 },
   { id: "earn50", title: "Ganhe 50 moedas jogando", reward: 25, target: 50, progress: (d) => d.coinsFromGames },
   { id: "all3", title: "Jogue 3 jogos diferentes hoje", reward: 50, target: 3, progress: (d) => Object.keys(d.perGame).length },
+  { id: "arena1", title: "Vença uma batalha na Arena das Lendas", reward: 50, target: 1, progress: (d) => ((d.perGame["arena-das-lendas"]?.best ?? 0) >= 2 ? 1 : 0) },
   { id: "chess1", title: "Termine uma partida de xadrez", reward: 30, target: 1, progress: (d) => d.perGame["xadrez"]?.plays ?? 0 },
   { id: "chesswin", title: "Vença uma partida de xadrez", reward: 60, target: 1, progress: (d) => ((d.perGame["xadrez"]?.best ?? 0) >= 2 ? 1 : 0) },
 ];

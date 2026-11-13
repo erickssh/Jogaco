@@ -24,6 +24,21 @@ export type Game = {
 
 export const GAMES: Game[] = [
   {
+    slug: "arena-das-lendas",
+    title: "Arena das Lendas",
+    description: "Batalhas em tempo real com as lendas do folclore brasileiro.",
+    howTo: "Monte um time de 3 lendas, use os golpes quando recarregarem e troque de lenda na hora certa.",
+    category: "Ação",
+    emoji: "⚔️",
+    gradient: "linear-gradient(135deg,#1b998b,#6a0dad)",
+    kind: "proprio",
+    href: "/lendas",
+    hideRecord: true,
+    scoreLabel: "",
+    // 0 = derrota, 2/3/4 = vitória (fácil / médio / difícil)
+    coinsFor: (s) => [0, 0, 30, 40, 55][Math.min(Math.max(s, 0), 4)],
+  },
+  {
     slug: "serpente-neon",
     title: "Serpente Neon",
     description: "Guie a serpente, coma as frutas e não bata em si mesma.",

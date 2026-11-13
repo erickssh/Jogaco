@@ -23,6 +23,8 @@ type Ctx = {
   claimLogin: () => void;
   claimMission: (id: string) => void;
   buy: (id: string) => void;
+  /** Compra genérica (ex.: liberar uma lenda). Retorna true se deu certo. */
+  unlock: (id: string, price: number, label: string) => boolean;
   equip: (id: string) => void;
   toast: string | null;
 };
@@ -128,6 +130,14 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     notify(`Você comprou: ${item.name} ${item.id}`);
   };
 
+  const unlock: Ctx["unlock"] = (id, price, label) => {
+    const s = current();
+    if (s.owned.includes(id) || s.coins < price) return false;
+    setState({ ...s, coins: s.coins - price, owned: [...s.owned, id] });
+    notify(`Liberado: ${label} 🎉`);
+    return true;
+  };
+
   const equip = (id: string) => {
     const s = current();
     if (!s.owned.includes(id)) return;
@@ -135,7 +145,7 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <RewardsContext.Provider value={{ state, ready, recordGame, claimLogin, claimMission, buy, equip, toast }}>
+    <RewardsContext.Provider value={{ state, ready, recordGame, claimLogin, claimMission, buy, unlock, equip, toast }}>
       {children}
       {toast && <div className="toast" role="status">{toast}</div>}
     </RewardsContext.Provider>
