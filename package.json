@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "gerar:susdoku": "tsc lib/susdoku/dados.ts lib/susdoku/motor.ts --outDir .susdoku-build --module commonjs --target es2020 --skipLibCheck && node scripts/gerar-susdoku.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

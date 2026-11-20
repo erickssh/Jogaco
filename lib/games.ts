@@ -17,12 +17,29 @@ export type Game = {
   /** Não mostrar "recorde" (ex.: xadrez, onde a pontuação é o resultado). */
   hideRecord?: boolean;
   online?: boolean;
+  /** ainda não dá moedas (recompensas definidas depois) */
+  semMoedas?: boolean;
   scoreLabel: string;
   /** Converte a pontuação de uma partida em moedas. */
   coinsFor: (score: number) => number;
 };
 
 export const GAMES: Game[] = [
+  {
+    slug: "susdoku",
+    title: "Susdoku",
+    description: "O sudoku de detetive: descubra onde cada pessoa estava e quem foi o culpado.",
+    howTo: "Use as pistas para posicionar cada pessoa na planta. Uma pessoa por linha e por coluna.",
+    category: "Puzzle",
+    emoji: "🔎",
+    gradient: "linear-gradient(135deg,#2a1f4a,#d7263d)",
+    kind: "proprio",
+    href: "/susdoku",
+    hideRecord: true,
+    semMoedas: true,
+    scoreLabel: "",
+    coinsFor: () => 0,
+  },
   {
     slug: "arena-das-lendas",
     title: "Arena das Lendas",

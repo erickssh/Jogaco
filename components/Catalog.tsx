@@ -47,7 +47,8 @@ export function Catalog() {
             <Link key={g.slug} href={gameHref(g)} className="tile">
               <div className="thumb" style={{ background: g.gradient }}>
                 <span className="thumb-emoji">{g.emoji}</span>
-                {g.kind === "proprio" && <span className="tag">🪙 Vale moedas</span>}
+                {g.kind === "proprio" && !g.semMoedas && <span className="tag">🪙 Vale moedas</span>}
+                {g.semMoedas && <span className="tag">✨ Novo</span>}
                 {g.online && <span className="tag tag-online">🌐 Online</span>}
               </div>
               <div className="tile-body">
