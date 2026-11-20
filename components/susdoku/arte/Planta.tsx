@@ -92,7 +92,14 @@ export function Planta({ caso, colocados, marcas, dicaCasa, erroCasa, revelado, 
         const { x, y } = xy(c);
         const temRotulo = rotulos.has(c);
         return (
-          <g key={`m${c}`} transform={`translate(${x + (temRotulo ? 6 : 0)} ${y + (temRotulo ? 10 : 0)}) scale(${temRotulo ? 0.88 : 1})`}>
+          <g
+            key={`m${c}`}
+            transform={
+              colocados.includes(c)
+                ? `translate(${x} ${y + (temRotulo ? 20 : 4)}) scale(0.6)` // tem gente: objeto vai para o canto, sempre visível
+                : `translate(${x + (temRotulo ? 6 : 0)} ${y + (temRotulo ? 10 : 0)}) scale(${temRotulo ? 0.88 : 1})`
+            }
+          >
             <Movel id={o} />
           </g>
         );
@@ -153,13 +160,15 @@ export function Planta({ caso, colocados, marcas, dicaCasa, erroCasa, revelado, 
         const { x, y } = xy(c);
         const ps = caso.pessoas[pessoa];
         const w = ps.nome.length * 8 + 16;
+        const comObjeto = !!caso.objetos[c];
+        const cx = comObjeto ? Math.min(x + U - w / 2 - 3, x + 68) : x + U / 2;
         return (
           <g key={`f${pessoa}`} className="sd-personagem" pointerEvents="none">
-            <g transform={`translate(${x + U / 2} ${y + 44}) scale(0.62)`}>
+            <g transform={comObjeto ? `translate(${x + 68} ${y + 54}) scale(0.44)` : `translate(${x + U / 2} ${y + 44}) scale(0.62)`}>
               <RostoG v={visualDe(ps.nome, ps.g, adulto)} e={expressao(pessoa)} moldura clipId={`${p}-f${pessoa}`} />
             </g>
-            <rect x={x + U / 2 - w / 2} y={y + 76} width={w} height={19} rx="9.5" fill={revelado && pessoa === caso.culpado ? "#e5243b" : "#ffffff"} stroke="#1e1e24" strokeWidth="2.5" />
-            <text x={x + U / 2} y={y + 90} textAnchor="middle" fontSize="12.5" fontWeight="800" fill={revelado && pessoa === caso.culpado ? "#ffffff" : "#1e1e24"} fontFamily="system-ui, sans-serif">
+            <rect x={cx - w / 2} y={y + 76} width={w} height={19} rx="9.5" fill={revelado && pessoa === caso.culpado ? "#e5243b" : "#ffffff"} stroke="#1e1e24" strokeWidth="2.5" />
+            <text x={cx} y={y + 90} textAnchor="middle" fontSize="12.5" fontWeight="800" fill={revelado && pessoa === caso.culpado ? "#ffffff" : "#1e1e24"} fontFamily="system-ui, sans-serif">
               {ps.nome}
             </text>
           </g>
