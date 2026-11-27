@@ -169,55 +169,15 @@ function paintCircuit(ctx,startingSlots=[]) {
 
 const playerPaint=['#ad403c','#ef7e64','#ff9a79','#702c2e','#ffd3ae'];
 
-function carView(car,decay){
+function carView(car,decay,steeringBlend){
   const dx=car.viewOffsetX??0,dy=car.viewOffsetY??0;
   const angle=car.viewOffsetAngle??0;
   car.viewOffsetX=dx*decay;
   car.viewOffsetY=dy*decay;
   car.viewOffsetAngle=angle*decay;
-  return {x:car.x+dx,y:car.y+dy,a:car.a+angle,paint:car.paint,name:car.name,lane:car.lane,retiredAt:car.retiredAt,carModel:car.carModel};
-}
-
-const carArt = new Map();
-
-async function prepareCarArt() {
-  await Promise.all(OverdriveCars.carModels.map(async model => {
-    const image = new Image();
-    image.src = OverdriveCars.imageForModel(model.id, true);
-    await image.decode();
-    const {width,length} = OverdriveCars.sizeForModel(model.id);
-    const shadow = document.createElement('canvas');
-    shadow.width = image.naturalWidth;
-    shadow.height = image.naturalHeight;
-    const brush = shadow.getContext('2d');
-    brush.drawImage(image,0,0);
-    brush.globalCompositeOperation = 'source-in';
-    brush.fillStyle = SUN_SHADOW.color;
-    brush.fillRect(0,0,shadow.width,shadow.height);
-    carArt.set(model.id,{id:model.id,image,shadow,width,length});
-  }));
-}
-
-function paintCar(ctx, car) {
-  const art = carArt.get(car.carModel) ?? carArt.get(OverdriveCars.defaultModel);
-  if (!art) return;
-  const {image,shadow,width,length} = art;
-  const angle = car.a + Math.PI / 2; // The art faces up; physics uses +x as forward.
-  castShadow(ctx,6,shade=>{
-    shade.translate(car.x,car.y);
-    shade.rotate(angle);
-    shade.drawImage(shadow,-width/2,-length/2,width,length);
-  },.52);
-
-  ctx.save();
-  ctx.translate(car.x,car.y);
-  ctx.rotate(angle);
-  // Only decode the native artwork when the display exceeds the sampled sprite.
-  if (length*scale > image.naturalHeight && !art.fullImage) {
-    art.fullImage = new Image();
-    art.fullImage.src = OverdriveCars.imageForModel(art.id);
-    art.fullImage.decode().then(() => { art.highResReady = true; }, () => {});
-  }
-  ctx.drawImage(art.highResReady ? art.fullImage : image,-width/2,-length/2,width,length);
-  ctx.restore();
+  const target=Number.isFinite(car.steeringAngle)?car.steeringAngle:0;
+  const steering=car.viewSteeringAngle??0;
+  car.viewSteeringAngle=steering+(target-steering)*steeringBlend;
+  return {x:car.x+dx,y:car.y+dy,a:car.a+angle,paint:car.paint,name:car.name,lane:car.lane,
+    retiredAt:car.retiredAt,carModel:car.carModel,steeringAngle:car.viewSteeringAngle};
 }

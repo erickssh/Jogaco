@@ -16,6 +16,7 @@ function driveCar(car,{throttle,steer,drift},dt){
   const sliding=drift && grass<.5;
   const turnRate=(sliding?2.58:1.94-1.12*ratio)*turn*(1-.26*grass);
   const steering=steer*turnRate*Math.min(1,speed/95)*(forwardBefore<0?-1:1);
+  car.steeringAngle=steer*(.48-.24*ratio+(sliding?.11:0));
   car.a+=((speed>4?steering:0)+car.spin)*dt;
   car.spin*=Math.exp(-dt*(sliding?2.25:2.9));
 

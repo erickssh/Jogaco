@@ -153,9 +153,9 @@ const onlineRace = (() => {
       }
       if (now - lastSend >= (raceClosed ? 250 : 85)) {
         lastSend = now;
-        const cars = field.map(({ id, name, x, y, a, vx, vy, spin, lane, progress, standing, finishedAt, retiredAt, checkpoint, drifting, motorLoad, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }) =>
+        const cars = field.map(({ id, name, x, y, a, vx, vy, spin, lane, progress, standing, finishedAt, retiredAt, checkpoint, drifting, motorLoad, steeringAngle, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }) =>
           ({ id, name, x, y, a, vx, vy, spin, lane, progress, standing,
-            finishedAt: Number.isFinite(finishedAt) ? finishedAt : null, retiredAt, checkpoint, drifting, motorLoad, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }));
+            finishedAt: Number.isFinite(finishedAt) ? finishedAt : null, retiredAt, checkpoint, drifting, motorLoad, steeringAngle, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }));
         send('snapshot', { match, frame: frameNumber++, cars, remaining, startEpoch:hostStartEpoch,
           elapsed, raceClosed, results: finalResults });
       }
