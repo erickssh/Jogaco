@@ -8,6 +8,15 @@ const onlineRace = (() => {
   let inputSeq = 0, sentAt = 0, lastInput = '';
   let previousNotice = '', previousStandings = '';
   const standings = document.querySelector('#standings');
+  const rematchButton = document.querySelector('#online-again');
+  const rematchStatus = document.querySelector('#rematch-status');
+  rematchButton.onclick = () => {
+    if (!match || !done) return;
+    rematchButton.disabled = true;
+    rematchStatus.textContent = 'Aguardando a confirmação dos outros jogadores.';
+    rematchStatus.hidden = false;
+    send('rematch', { raceId: match.id });
+  };
   const remoteInputs = new Map();
 
   function send(type, payload) {
@@ -35,6 +44,9 @@ const onlineRace = (() => {
     setup.hidden = true;
     document.querySelector('.race-actions').hidden = true;
     document.querySelector('.result-actions').hidden = true;
+    document.querySelector('#online-result-actions').hidden = false;
+    rematchButton.disabled = false;
+    rematchStatus.hidden = true;
     receivedFrame = -1;
     frameNumber = 0;
     accumulator = 0;
@@ -98,16 +110,16 @@ const onlineRace = (() => {
     standings.hidden = false;
   }
 
-  function drawLabels(ctx, left, top, width, height) {
+  function drawLabels(ctx, local, opponents, left, top, width, height) {
     if (!field) return;
     ctx.save();
     const size = 12 * (window.devicePixelRatio || 1) / scale;
     ctx.font = '700 ' + size + 'px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const driver of field) {
+    for (const driver of [local,...opponents]) {
       if (!driver.name || driver.x < left || driver.x > left + width || driver.y < top || driver.y > top + height) continue;
-      const label = driver === car ? driver.name + ' (você)' : driver.name;
+      const label = driver === local ? driver.name + ' (você)' : driver.name;
       const w = Math.min(ctx.measureText(label).width, size * 13) + size;
       const y = driver.y - 25 - size / 2;
       ctx.fillStyle = '#20312aee';
@@ -156,6 +168,7 @@ const onlineRace = (() => {
       if (!remaining && !finalResults && !done && now - snapshotAt < 450) {
         driveCar(car, controls, dt);
         keepInsideMap(car);
+        keepOutsideRails(car);
         const signature = JSON.stringify(controls);
         if (now - sentAt > 250 || (signature !== lastInput && now - sentAt > 55)) {
           sentAt = now;
@@ -176,8 +189,10 @@ const onlineRace = (() => {
 
   function receiveSnapshot(payload) {
     if (!match || payload.match.id !== match.id || payload.frame <= receivedFrame) return;
+    const now = performance.now();
+    const smooth = snapshotAt > 0 && now - snapshotAt < 500 && !payload.remaining;
     receivedFrame = payload.frame;
-    snapshotAt = performance.now();
+    snapshotAt = now;
     startAt = snapshotAt + payload.remaining;
     elapsed = payload.elapsed;
     finalResults = payload.results;
@@ -186,10 +201,11 @@ const onlineRace = (() => {
       if (!driver) continue;
       const { x, y, a } = driver;
       Object.assign(driver, state, { finishedAt: state.finishedAt ?? Infinity });
-      if (driver === car && !payload.remaining && !finalResults && !done && Math.hypot(x - state.x, y - state.y) < 30) {
-        driver.x = state.x + (x - state.x) * .62;
-        driver.y = state.y + (y - state.y) * .62;
-        driver.a = state.a + angleBetween(a, state.a) * .62;
+      if (smooth) {
+        // Keep the last drawn pose while applying the host state immediately.
+        smoothCarCorrection(driver, state.x - x, state.y - y, angleBetween(state.a, a), 90);
+      } else {
+        driver.viewOffsetX = driver.viewOffsetY = driver.viewOffsetAngle = 0;
       }
     }
   }
@@ -201,6 +217,11 @@ const onlineRace = (() => {
     port.onmessage = ({ data }) => {
       if (data.type === 'start') prepare(data.payload.match, data.payload.host, data.payload.id);
       if (data.type === 'snapshot' && !host) receiveSnapshot(data.payload);
+      if (data.type === 'rematch-status' && data.payload.accepted === false) {
+        rematchButton.disabled = false;
+        rematchStatus.textContent = 'A confirmação falhou. Tente de novo.';
+        rematchStatus.hidden = false;
+      }
       if (data.type === 'input' && host && data.payload.raceId === match?.id) {
         const input = data.payload;
         if (input.seq > (remoteInputs.get(input.id)?.seq ?? 0)) {

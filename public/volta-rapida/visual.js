@@ -10,6 +10,31 @@ function castShadow(ctx, height, silhouette, opacity = .42) {
   ctx.restore();
 }
 
+function paintShortcutRails(ctx){
+  ctx.save();
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+  for(const points of shortcutRails){
+    ctx.beginPath();
+    ctx.moveTo(...points[0]);
+    for(const point of points.slice(1)) ctx.lineTo(...point);
+    ctx.strokeStyle='#213c27';
+    ctx.lineWidth=14;
+    ctx.stroke();
+    ctx.strokeStyle='#9eaa9b';
+    ctx.lineWidth=9;
+    ctx.stroke();
+    ctx.strokeStyle='#e2ded1';
+    ctx.lineWidth=3;
+    ctx.stroke();
+    for(const [x,y] of points){
+      ctx.fillStyle='#596354';
+      ctx.fillRect(x-3,y-4,6,8);
+    }
+  }
+  ctx.restore();
+}
+
 function paintCircuit(ctx,startingSlots=[]) {
   ctx.lineCap = 'butt';
   function strokeTrack(color, lineWidth) {
@@ -118,6 +143,15 @@ function paintCircuit(ctx,startingSlots=[]) {
 }
 
 const playerPaint=['#ad403c','#ef7e64','#ff9a79','#702c2e','#ffd3ae'];
+
+function carView(car,decay){
+  const dx=car.viewOffsetX??0,dy=car.viewOffsetY??0;
+  const angle=car.viewOffsetAngle??0;
+  car.viewOffsetX=dx*decay;
+  car.viewOffsetY=dy*decay;
+  car.viewOffsetAngle=angle*decay;
+  return {x:car.x+dx,y:car.y+dy,a:car.a+angle,paint:car.paint,name:car.name,lane:car.lane};
+}
 
 function paintCar(ctx, car) {
   const [shade,bright,highlight,trim,stripe]=car.paint??playerPaint;

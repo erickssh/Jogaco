@@ -121,7 +121,11 @@ function parkLayout(){
     const overlaps = placed.some(([, otherX, otherY, otherSize]) =>
       Math.abs(x-otherX) < (size+otherSize)*.47+3 &&
       Math.abs(y-otherY) < (size+otherSize)*.47+3);
-    if (!overlaps && !inRaceFacility(x,y,size) && !insideFinishStand(x,y,size*.52+12)) placed.push(object);
+    const nearRail=railSegments.some(segment=>{
+      const offset=railOffset(segment,x,y);
+      return Math.hypot(offset.x,offset.y)<size*.52+12;
+    });
+    if (!overlaps && !nearRail && !inRaceFacility(x,y,size) && !insideFinishStand(x,y,size*.52+12)) placed.push(object);
   }
   for (const landmark of landmarks) {
     const [, x, y, size] = landmark;

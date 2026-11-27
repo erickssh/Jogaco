@@ -24,9 +24,8 @@ const samplesPerLap=Math.ceil(TRACK.length/6);
 const sampleDistance=TRACK.length/samplesPerLap;
 const raceRoute=Array.from({length:samplesPerLap},(_,i)=>TRACK.pointAt(startDistance+i*sampleDistance));
 
-const gateCount=Math.ceil(TRACK.length/235);
+const gateCount=Math.ceil(TRACK.length/145);
 const gateSpacing=TRACK.length/gateCount;
-const raceGates=Array.from({length:gateCount},(_,i)=>TRACK.pointAt(startDistance+(i+1)*gateSpacing));
 
 function routeIndex(index){
   return ((index%samplesPerLap)+samplesPerLap)%samplesPerLap;
@@ -232,42 +231,73 @@ function opponentControls(bot,traffic,elapsed){
 }
 
 function refreshRacePosition(car){
+  car.previousProgress=car.progress;
   car.progress=measureRaceProgress(car.x,car.y,car.progress);
   car.lane=TRACK.offsetAt(car.x,car.y);
+  const local=raceRoute[routeIndex(Math.round(car.progress/sampleDistance))];
+  // After a spin or a detour inside a hairpin the local projection can stay
+  // on the incoming straight. Reacquire the nearest leg on returning to the
+  // asphalt. This only locates the car; it never credits missed sectors.
+  if(Math.abs(car.lane)<=TRACK.halfWidth &&
+     Math.hypot(car.x-local.x,car.y-local.y)>Math.abs(car.lane)+28){
+    let nearest=0,best=Infinity;
+    raceRoute.forEach((p,i)=>{
+      const d=(car.x-p.x)**2+(car.y-p.y)**2;
+      if(d<best){best=d;nearest=i;}
+    });
+    car.progress+=circuitGap(nearest*sampleDistance,car.progress);
+  }
+}
+
+// Credit an ordered sector anywhere along its exit corridor. A driver can
+// rejoin slightly downstream of the marker; skipping a whole leg leaves
+// the required sector behind and prevents further credit.
+function passedSector(car,required){
+  const beyond=car.progress-required;
+  if(beyond<0 || beyond>gateSpacing*1.5 || car.progress<=car.previousProgress) return false;
+  const nearest=raceRoute[routeIndex(Math.round(car.progress/sampleDistance))];
+  return Math.hypot(car.x-nearest.x,car.y-nearest.y)<=TRACK.halfWidth+140;
 }
 
 function advanceRaceGates(car,oldX,oldY,elapsed,dt){
   if(Number.isFinite(car.finishedAt)) return;
-  const gate=raceGates[car.checkpoint%gateCount];
+  const next=car.checkpoint%gateCount;
   const required=(car.checkpoint+1)*gateSpacing;
-  // Accept modest excursions at a checkpoint while excluding shortcuts
-  // across the infield or another leg of the circuit.
-  if(car.progress>required-120 && car.progress<required+120 &&
-     crossesGate(gate,oldX,oldY,car.x,car.y,TRACK.halfWidth+45)){
+  if(next<gateCount-1 && passedSector(car,required)){
     car.checkpoint++;
     car.missedLap=false;
-    if(car.checkpoint===raceLaps*gateCount){
-      const before=(oldX-gate.x)*gate.tx+(oldY-gate.y)*gate.ty;
-      const after=(car.x-gate.x)*gate.tx+(car.y-gate.y)*gate.ty;
-      car.finishedAt=Math.max(0,elapsed-dt*after/(after-before));
-    }
   }
-  const activeLap=Math.floor(car.checkpoint/gateCount);
-  const lapLine=gate===raceGates[gateCount-1]?gate:grid;
-  const nearStart=Math.abs(circuitGap(car.progress,0))<100;
-  if(nearStart && car.progress>(activeLap+.85)*TRACK.length &&
-     crossesGate(lapLine,oldX,oldY,car.x,car.y,TRACK.halfWidth+45)){
-    // A driver who missed a gate can try the current lap again after the line.
-    car.checkpoint=activeLap*gateCount;
-    car.progress=activeLap*TRACK.length+circuitGap(car.progress,0);
-    car.missedLap=true;
+
+  if(crossesGate(grid,oldX,oldY,car.x,car.y,TRACK.halfWidth+140)){
+    const lap=Math.floor(car.checkpoint/gateCount);
+    if(next===gateCount-1){
+      car.checkpoint++;
+      car.progress=(lap+1)*TRACK.length;
+      car.missedLap=false;
+      if(car.checkpoint===raceLaps*gateCount){
+        const before=(oldX-grid.x)*grid.tx+(oldY-grid.y)*grid.ty;
+        const after=(car.x-grid.x)*grid.tx+(car.y-grid.y)*grid.ty;
+        car.finishedAt=Math.max(0,elapsed-dt*after/(after-before));
+      }
+    }else{
+      // Re-anchor at the real finish line even if a shortcut left the local
+      // projection behind. The skipped sectors still have to be driven.
+      const lapStart=lap*TRACK.length;
+      car.missedLap=car.missedLap || car.checkpoint>lap*gateCount || car.progress>lapStart+gateSpacing;
+      car.checkpoint=lap*gateCount;
+      car.progress=lapStart;
+    }
   }
   car.standing=Math.max(car.checkpoint*gateSpacing-30,
     Math.min((car.checkpoint+1)*gateSpacing-1,car.progress));
 }
 
 function advanceField(car,bots,controls,dt,elapsed){
-  advanceRacers([car,...bots],()=>controls,dt,elapsed);
+  const drivers=[car,...bots];
+  if(dt<=0) return;
+  const substeps=Math.ceil(dt*60);
+  const step=dt/substeps;
+  for(let i=0;i<substeps;i++) advanceRacers(drivers,()=>controls,step,elapsed-dt+(i+1)*step);
 }
 
 function advanceRacers(drivers,controlsFor,dt,elapsed){
@@ -282,6 +312,7 @@ function advanceRacers(drivers,controlsFor,dt,elapsed){
   }
   drivers.forEach((driver,i)=>{
     keepInsideMap(driver);
+    keepOutsideRails(driver);
     refreshRacePosition(driver);
     advanceRaceGates(driver,movement[i].x,movement[i].y,elapsed,dt);
   });
