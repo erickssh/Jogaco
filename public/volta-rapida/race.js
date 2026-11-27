@@ -26,6 +26,8 @@ const raceRoute=Array.from({length:samplesPerLap},(_,i)=>TRACK.pointAt(startDist
 
 const gateCount=Math.ceil(TRACK.length/36);
 const gateSpacing=TRACK.length/gateCount;
+// Farthest tyre corner in paintCar, including its reach at full drift angle.
+const tyreVerge=Math.hypot(16,12);
 const timingGates=Array.from({length:gateCount},(_,index)=>
   TRACK.pointAt(startDistance+(index+1)*gateSpacing));
 
@@ -43,7 +45,7 @@ function gridPosition(slot){
   const lane=slot%2?-gridLane:gridLane;
   return {...racePoint(progress,lane),progress,lane,standing:progress,
     checkpoint:0,finishedAt:Infinity,lapStartedAt:0,lastLapTime:null,lapEndedAt:null,
-    passageTimes:[],gap:null,grassRun:null,cutLap:false,
+    motionHistory:[{distance:progress,time:0}],gapTo:null,gap:null,grassRun:null,cutLap:false,
     vx:0,vy:0,spin:0,drifting:false,lastSkid:null};
 }
 
@@ -276,6 +278,19 @@ function sectorCrossing(car,gate,oldX,oldY){
   return null;
 }
 
+// At the kerb a contact or drift can carry the car past a timing line
+// between ticks. Recover only the line swept on this very step.
+function sweptRoadGate(car,required,oldX,oldY){
+  const step=car.progress-car.previousProgress;
+  if(step<=0 || required<car.previousProgress || required>car.progress) return null;
+  const motion=Math.hypot(car.x-oldX,car.y-oldY);
+  if(step>Math.max(2,12*motion)) return null;
+  const t=(required-car.previousProgress)/step;
+  const p=timingGates[car.checkpoint%gateCount];
+  const x=oldX+t*(car.x-oldX),y=oldY+t*(car.y-oldY);
+  return Math.hypot(x-p.x,y-p.y)<=TRACK.halfWidth+tyreVerge?t:null;
+}
+
 // Measure only the advantage gained on the inside of a bend while off-road.
 // A wide exit or a run parallel to a straight does not shorten that route.
 function checkGrassCut(car,oldX,oldY){
@@ -287,16 +302,18 @@ function checkGrassCut(car,oldX,oldY){
   if(ds<=0 || distance<.001) return;
   const p=TRACK.pointAt(startDistance+(car.progress+car.previousProgress)*.5);
   const lane=(car.x-p.x)*p.ty-(car.y-p.y)*p.tx;
-  const run=car.grassRun ??= {gain:0,turn:0,travel:0,dx:0,dy:0};
+  const run=car.grassRun ??= {gain:0,turn:0,travel:0,dx:0,dy:0,depth:0};
+  run.depth=Math.max(run.depth,Math.abs(car.lane)-TRACK.halfWidth);
   run.travel+=distance;
   run.dx+=dx;
   run.dy+=dy;
-  if(lane*p.curvature>=0 || Math.abs(p.curvature)*(TRACK.halfWidth+26)>=.94 || ds>distance*10) return;
-  run.gain+=Math.max(0,Math.abs(lane)-TRACK.halfWidth)*Math.abs(p.curvature)*ds;
-  run.turn+=Math.abs(p.curvature)*ds;
+  if(lane*p.curvature<0 && Math.abs(p.curvature)*(TRACK.halfWidth+26)<.94 && ds<=distance*10){
+    run.gain+=Math.max(0,Math.abs(lane)-TRACK.halfWidth)*Math.abs(p.curvature)*ds;
+    run.turn+=Math.abs(p.curvature)*ds;
+  }
   // A car following the verge turns with it. A chord trades that bend for
   // nearly straight travel and saves a measurable distance over the kerb.
-  if(run.gain>9 && run.turn>.50 && run.travel>36 && Math.hypot(run.dx,run.dy)>run.travel*.993){
+  if(run.depth>tyreVerge && run.gain>9 && run.turn>.50 && run.travel>36 && Math.hypot(run.dx,run.dy)>run.travel*.993){
     car.cutLap=true;
     car.missedLap=true;
   }
@@ -310,9 +327,9 @@ function advanceRaceGates(car,oldX,oldY,elapsed,dt){
   // Only the next gate in sequence can give credit.
   while(!car.cutLap && next<gateCount-1){
     const gate=timingGates[next];
-    const t=sectorCrossing(car,gate,oldX,oldY);
+    const t=sectorCrossing(car,gate,oldX,oldY)??sweptRoadGate(car,(car.checkpoint+1)*gateSpacing,oldX,oldY);
     if(t===null) break;
-    car.passageTimes[++car.checkpoint]=elapsed-dt*(1-t);
+    car.checkpoint++;
     car.missedLap=false;
     next++;
   }
@@ -322,7 +339,7 @@ function advanceRaceGates(car,oldX,oldY,elapsed,dt){
     const after=(car.x-grid.x)*grid.tx+(car.y-grid.y)*grid.ty;
     const crossedAt=Math.max(0,elapsed-dt*after/(after-before));
     if(next===gateCount-1 && !car.cutLap){
-      car.passageTimes[++car.checkpoint]=crossedAt;
+      car.checkpoint++;
       car.progress=(lap+1)*TRACK.length;
       car.lastLapTime=crossedAt-car.lapStartedAt;
       car.lapEndedAt=car.lapStartedAt=crossedAt;
@@ -333,9 +350,7 @@ function advanceRaceGates(car,oldX,oldY,elapsed,dt){
       if(car.checkpoint>first || car.cutLap || car.progress>lap*TRACK.length+gateSpacing){
         car.missedLap=true;
         car.lapStartedAt=crossedAt;
-        car.passageTimes.length=first+1;
-        car.passageTimes[first]=crossedAt;
-      }else if(car.passageTimes[first]==null) car.passageTimes[first]=crossedAt;
+      }
       car.checkpoint=first;
       car.progress=lap*TRACK.length;
     }
@@ -343,31 +358,67 @@ function advanceRaceGates(car,oldX,oldY,elapsed,dt){
     car.grassRun=null;
   }
   const base=car.checkpoint*gateSpacing;
-  car.standing=Number.isFinite(car.finishedAt)?raceLength:
-    Math.max(car.checkpoint?base-30:gridLead-8*gridSpacing,Math.min(base+gateSpacing-.01,car.progress));
+  // Place clean drivers using their continuous position. A missed leg
+  // cannot elevate a shortcut above drivers who actually covered it.
+  car.timingBlocked=car.cutLap || car.progress>base+2*gateSpacing;
+  car.standing=car.timingBlocked?base:Math.min(raceLength,car.progress);
+  if(Number.isFinite(car.finishedAt)) car.standing=raceLength;
+  recordPassage(car,Number.isFinite(car.finishedAt)?car.finishedAt:elapsed);
 }
 
 function raceOrder(drivers){
   return [...drivers].sort((a,b)=>a===b?0:aheadInRace(a,b)?-1:1);
 }
 
-// Compare both cars at the trailing car's current distance, using the
-// preceding driver's recorded passage times, even across different laps.
+// Record where this driver actually was on the race clock. Sampling at 10 Hz
+// retains stops and speed changes without storing an entire physics replay.
+function recordPassage(car,time){
+  const history=car.motionHistory, distance=car.standing;
+  while(history.length && history[history.length-1].distance>distance) history.pop();
+  let last=history[history.length-1];
+  if(car.observedDistance!==distance){
+    car.observedDistance=distance;
+    car.arrivedAt=time;
+  }else if(last && last.distance!==distance){
+    // Store the exact onset of a stop between regular samples.
+    last={distance,time:car.arrivedAt};
+    history.push(last);
+  }
+  if(last && time-last.time<.1 && !Number.isFinite(car.finishedAt)) return;
+  if(last && distance===last.distance && history[history.length-2]?.distance===distance){
+    last.time=time;
+  }else history.push({distance,time});
+}
+
+function passageAt(car,distance,elapsed){
+  const points=car.motionHistory;
+  if(!points.length || distance<points[0].distance || distance>car.standing) return null;
+  // First arrival at this point. If the leader parked here, the gap to a
+  // pursuing car still reflects the leader's actual arrival and departure.
+  let low=0,high=points.length;
+  while(low<high){
+    const mid=(low+high)>>>1;
+    if(points[mid].distance<distance) low=mid+1;
+    else high=mid;
+  }
+  const after=points[low]??{distance:car.standing,time:elapsed};
+  if(after.distance===distance) return after.time;
+  const before=points[low-1];
+  if(!before) return null;
+  const fraction=(distance-before.distance)/(after.distance-before.distance);
+  return before.time+fraction*(after.time-before.time);
+}
+
 function updateIntervals(drivers,elapsed){
   const sorted=raceOrder(drivers);
   sorted.forEach((driver,index)=>{
     driver.gap=null;
-    if(!index || driver.standing<0 || Number.isFinite(driver.finishedAt)) return;
     const ahead=sorted[index-1];
-    const sector=Math.floor(driver.standing/gateSpacing);
-    const start=ahead.passageTimes[sector];
-    if(start==null) return;
-    const next=ahead.passageTimes[sector+1];
-    const endDistance=next==null?ahead.standing:(sector+1)*gateSpacing;
-    const length=endDistance-sector*gateSpacing;
-    const fraction=length>0?Math.min(1,Math.max(0,(driver.standing-sector*gateSpacing)/length)):0;
-    const passed=start+fraction*((next??elapsed)-start);
-    driver.gap=Math.max(0,elapsed-passed);
+    driver.gapTo=ahead?.id??null;
+    if(!ahead || Number.isFinite(driver.finishedAt) || driver.timingBlocked || ahead.timingBlocked) return;
+    const passed=passageAt(ahead,driver.standing,elapsed);
+    const arrived=passageAt(driver,driver.standing,elapsed);
+    if(passed!==null && arrived!==null) driver.gap=Math.max(0,arrived-passed);
   });
 }
 

@@ -2,6 +2,7 @@ const standings=document.querySelector('#standings');
 const spectateButton=document.querySelector('#spectate');
 const spectatorBar=document.querySelector('#spectator-bar');
 const timeLabel=document.querySelector('#time-label');
+const lapSplits=new WeakMap();
 let watching=null, raceClosed=false, nextIntervalsAt=0, standingsSignature='';
 
 function resetPresentation(){
@@ -25,8 +26,14 @@ function driverName(driver){
   return driver.name || (driver===car?'Você':'Bot '+driver.id);
 }
 
-function lapOnDisplay(driver,clock){
-  return driver.lastLapTime!=null && clock-driver.lapEndedAt<2;
+function lapOnDisplay(driver,now){
+  if(driver.lastLapTime==null) return false;
+  let split=lapSplits.get(driver);
+  if(!split || split.crossing!==driver.lapEndedAt){
+    split={crossing:driver.lapEndedAt,until:now+2000};
+    lapSplits.set(driver,split);
+  }
+  return now<split.until;
 }
 
 function collectIntervals(drivers,clock){
@@ -35,20 +42,22 @@ function collectIntervals(drivers,clock){
   nextIntervalsAt=Math.floor(clock)+1;
 }
 
-function renderStandings(order,clock){
+function renderStandings(order,now){
   const rows=order.map((driver,index)=>{
     let timing;
-    if(Number.isFinite(driver.finishedAt)) timing=clockTime(driver.finishedAt);
+    const split=lapOnDisplay(driver,now);
+    if(split) timing='Volta '+Math.floor(driver.checkpoint/gateCount)+' · '+clockTime(driver.lastLapTime);
+    else if(Number.isFinite(driver.finishedAt)) timing=clockTime(driver.finishedAt);
     else if(raceClosed) timing='Não concluiu';
-    else if(lapOnDisplay(driver,clock)) timing='V'+Math.floor(driver.checkpoint/gateCount)+' · '+clockTime(driver.lastLapTime);
+    else if(driver.cutLap) timing='Volta inválida';
     else if(!index) timing='Líder';
-    else timing=driver.gap==null?'—':'+'+driver.gap.toFixed(2).replace('.',',')+' s';
-    return {driver,timing};
+    else timing=driver.gap==null || driver.gapTo!==order[index-1].id?'—':'+'+driver.gap.toFixed(2).replace('.',',')+' s';
+    return {driver,timing,split};
   });
   const signature=JSON.stringify(rows.map(({driver,timing})=>[driver.id,timing,driver===watching]));
   if(signature===standingsSignature) return;
   standingsSignature=signature;
-  standings.querySelector('ol').replaceChildren(...rows.map(({driver,timing},index)=>{
+  standings.querySelector('ol').replaceChildren(...rows.map(({driver,timing,split},index)=>{
     const row=document.createElement('li'),dot=document.createElement('span');
     dot.className='dot';
     dot.style.backgroundColor=(driver.paint??playerPaint)[2];
@@ -58,7 +67,7 @@ function renderStandings(order,clock){
     if(driver===car) row.setAttribute('aria-current','true');
     if(driver===watching) row.classList.add('watching');
     const time=document.createElement('span');
-    time.className='interval';
+    time.className=split?'interval lap-split':'interval';
     time.textContent=timing;
     row.append(dot,label,time);
     return row;
@@ -120,10 +129,10 @@ function updateRaceHud(now,clock=elapsed){
   const completed=Math.floor(focus.checkpoint/gateCount);
   setHudText(lapEl,Math.min(raceLaps,completed+1)+' / '+raceLaps);
   const finished=Number.isFinite(focus.finishedAt);
-  const split=lapOnDisplay(focus,clock);
+  const split=lapOnDisplay(focus,now);
   setHudText(timeLabel,finished?'Tempo final':split?'Volta '+completed:'Volta atual');
   setHudText(timeEl,clockTime(finished?focus.finishedAt:split?focus.lastLapTime:clock-focus.lapStartedAt));
-  renderStandings(order,clock);
+  renderStandings(order,now);
 }
 
 spectateButton.onclick=()=>cycleSpectator(1);
