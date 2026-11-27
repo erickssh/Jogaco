@@ -15,7 +15,10 @@ export function CarPicker({title, value, onChange}: {
         <input type="radio" name={group} value={car.id} required checked={value === car.id}
           onChange={() => onChange(car.id)}/>
         <span className={styles.carCard}>
-          <span className={styles.carStage}><img src={imageForModel(car.id)} alt="" decoding="async"/></span>
+          <span className={styles.carStage}>
+            <img src={imageForModel(car.id, true)} srcSet={`${imageForModel(car.id, true)} 1x, ${imageForModel(car.id)} 3x`}
+              alt="" decoding="async"/>
+          </span>
           <span>{car.name}</span>
         </span>
       </label>)}

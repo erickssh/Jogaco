@@ -150,15 +150,17 @@ function paintCircuit(ctx,startingSlots=[]) {
 
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = '#e4d5af7d';
+  const boxFront=OverdriveCars.maxLength/2+4;
+  const boxSide=OverdriveCars.maxWidth/2+4;
   for(const {x,y,a} of startingSlots){
     ctx.save();
     ctx.translate(x-grid.x+600,y-grid.y+600);
     ctx.rotate(a);
     ctx.beginPath();
-    ctx.moveTo(5,-13);
-    ctx.lineTo(23,-13);
-    ctx.lineTo(23,13);
-    ctx.lineTo(5,13);
+    ctx.moveTo(5,-boxSide);
+    ctx.lineTo(boxFront,-boxSide);
+    ctx.lineTo(boxFront,boxSide);
+    ctx.lineTo(5,boxSide);
     ctx.stroke();
     ctx.restore();
   }
@@ -181,11 +183,9 @@ const carArt = new Map();
 async function prepareCarArt() {
   await Promise.all(OverdriveCars.carModels.map(async model => {
     const image = new Image();
-    image.src = OverdriveCars.imageForModel(model.id);
+    image.src = OverdriveCars.imageForModel(model.id, true);
     await image.decode();
-
-    // Keep each silhouette within the footprint shared by all race cars.
-    const scale = Math.min(63 / image.naturalHeight, 40.5 / image.naturalWidth);
+    const {width,length} = OverdriveCars.sizeForModel(model.id);
     const shadow = document.createElement('canvas');
     shadow.width = image.naturalWidth;
     shadow.height = image.naturalHeight;
@@ -194,7 +194,7 @@ async function prepareCarArt() {
     brush.globalCompositeOperation = 'source-in';
     brush.fillStyle = SUN_SHADOW.color;
     brush.fillRect(0,0,shadow.width,shadow.height);
-    carArt.set(model.id,{image,shadow,width:shadow.width*scale,length:shadow.height*scale});
+    carArt.set(model.id,{id:model.id,image,shadow,width,length});
   }));
 }
 
@@ -212,6 +212,12 @@ function paintCar(ctx, car) {
   ctx.save();
   ctx.translate(car.x,car.y);
   ctx.rotate(angle);
-  ctx.drawImage(image,-width/2,-length/2,width,length);
+  // Only decode the native artwork when the display exceeds the sampled sprite.
+  if (length*scale > image.naturalHeight && !art.fullImage) {
+    art.fullImage = new Image();
+    art.fullImage.src = OverdriveCars.imageForModel(art.id);
+    art.fullImage.decode().then(() => { art.highResReady = true; }, () => {});
+  }
+  ctx.drawImage(art.highResReady ? art.fullImage : image,-width/2,-length/2,width,length);
   ctx.restore();
 }

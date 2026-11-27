@@ -16,9 +16,10 @@ const opponentPaint=[
   ['#277275','#52aaa1','#99d9c2','#225253','#ecf0c7'],
   ['#60667a','#b9bec5','#eef0ec','#434b5e','#363b53']
 ];
-const gridSpacing=29;
-const gridLead=-29;
-const gridLane=32;
+// Alternate columns at equal intervals, with room between bumpers in each file.
+const gridSpacing=Math.ceil(OverdriveCars.maxLength*.77);
+const gridLead=-Math.ceil(OverdriveCars.maxLength*.7);
+const gridLane=Math.ceil(OverdriveCars.maxWidth);
 const racingLanes=[-55,-24,24,55];
 const samplesPerLap=Math.ceil(TRACK.length/6);
 const sampleDistance=TRACK.length/samplesPerLap;

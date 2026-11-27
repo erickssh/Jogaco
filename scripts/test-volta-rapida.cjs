@@ -101,7 +101,7 @@ test('Both invisible boundaries stop full speed contact and swept displacements'
       for(const target of [18,-45]){
         const oldX=x+nx*29,oldY=y+ny*29;
         const car={x:x+nx*target,y:y+ny*target,a:Math.atan2(-ny,-nx),vx:-410*nx,vy:-410*ny};
-        game.resolveRailContacts(car,oldX,oldY,runoffBarriers,10);
+        game.resolveRailContacts(car,oldX,oldY,runoffBarriers);
         assert((car.x-x)*nx+(car.y-y)*ny>0,'car stays on the road side of the invisible boundary');
         assert(Math.hypot(car.vx,car.vy)<410,'impact reduces speed');
       }
@@ -299,4 +299,43 @@ test('Lap and finish times use the fraction of the tick when the car crosses',()
     assert(Math.abs(car.lastLapTime-(lap===1?20.01:20))<1e-8);
   }
   assert(Math.abs(car.finishedAt-60.01)<1e-8);
+});
+
+test('All eight staggered grid slots leave clearance for the largest cars',()=>{
+  const {maxWidth,maxLength}=require('../public/volta-rapida/car-models');
+  const slots=Array.from({length:8},(_,i)=>game.gridPosition(i));
+  const step=slots[0].progress-slots[1].progress;
+  assert(-slots[0].progress>maxLength/2);
+  for(let i=0;i<slots.length;i++){
+    const slot=slots[i];
+    assert(Math.abs(slot.lane)+maxWidth/2<game.TRACK.halfWidth);
+    if(i){
+      assert.equal(slots[i-1].progress-slot.progress,step);
+      assert(Math.abs(slots[i-1].lane-slot.lane)-maxWidth>=25);
+    }
+    if(i>=2){
+      assert.equal(slot.lane,slots[i-2].lane);
+      assert(Math.hypot(slots[i-2].x-slot.x,slots[i-2].y-slot.y)-maxLength>=25);
+    }
+  }
+});
+
+test('Every model pair makes contact at its own bumper and side dimensions',()=>{
+  const {carModels,sizeForModel}=require('../public/volta-rapida/car-models');
+  for(const a of carModels) for(const b of carModels){
+    const first=sizeForModel(a.id),second=sizeForModel(b.id);
+    for(const angle of [0,.64,1.57]) for(const side of [false,true]){
+      const axis=angle+(side?Math.PI/2:0);
+      const span=side ? first.halfWidth+second.halfWidth : first.halfLength+second.halfLength;
+      for(const clearance of [-1,1]){
+        const follower={x:0,y:0,a:angle,vx:0,vy:0,carModel:a.id};
+        const leader={...follower,carModel:b.id,x:Math.cos(axis)*(span+clearance),y:Math.sin(axis)*(span+clearance)};
+        const before=Math.hypot(leader.x,leader.y);
+        game.carContact(follower,leader);
+        const after=Math.hypot(leader.x-follower.x,leader.y-follower.y);
+        if(clearance<0) assert(after-before>.7);
+        else assert.equal(after,before);
+      }
+    }
+  }
 });

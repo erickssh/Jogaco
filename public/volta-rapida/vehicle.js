@@ -56,9 +56,10 @@ function driveCar(car,{throttle,steer,drift},dt){
 }
 
 function keepInsideMap(car){
-  const margin=15;
-  const x=Math.max(margin,Math.min(W-margin,car.x));
-  const y=Math.max(margin,Math.min(H-margin,car.y));
+  const axes=carAxes(car);
+  const marginX=projectionRadius(axes,1,0),marginY=projectionRadius(axes,0,1);
+  const x=Math.max(marginX,Math.min(W-marginX,car.x));
+  const y=Math.max(marginY,Math.min(H-marginY,car.y));
   if(x!==car.x) car.vx*=-.24;
   if(y!==car.y) car.vy*=-.24;
   car.x=x;car.y=y;
@@ -101,14 +102,16 @@ function sweepRail(segment,x,y,dx,dy,radius){
 }
 
 function keepOutsideRails(car,oldX,oldY){
-  resolveRailContacts(car,oldX,oldY,trackBarriers,10+trackWallWidth/2);
+  resolveRailContacts(car,oldX,oldY,trackBarriers,trackWallWidth/2);
 }
 
-function resolveRailContacts(car,oldX,oldY,barriers,radius){
-  const segments=barriers.nearby(oldX,oldY,car.x,car.y,38);
+function resolveRailContacts(car,oldX,oldY,barriers,wallRadius=0){
+  const shape=OverdriveCars.sizeForModel(car.carModel);
+  const radius=shape.halfWidth+wallRadius;
+  const segments=barriers.nearby(oldX,oldY,car.x,car.y,shape.halfLength+wallRadius+2);
   if(!segments.size) return;
   const fx=Math.cos(car.a),fy=Math.sin(car.a);
-  const bumpers=[-11,0,11];
+  const bumpers=shape.bumpers;
   let x=oldX,y=oldY,dx=car.x-oldX,dy=car.y-oldY;
   let impact=false;
   function stopInward(nx,ny){
@@ -173,13 +176,14 @@ function resolveRaceEnvironment(car,oldX,oldY){
   keepOutsideScenery(car,oldX,oldY);
   // Keep the last constraint on the hidden boundary even if contact with
   // a trunk, the river, or another car displaced the vehicle this step.
-  resolveRailContacts(car,oldX,oldY,runoffBarriers,10);
+  resolveRailContacts(car,oldX,oldY,runoffBarriers);
 }
 
 // Resolve scenery contacts at ground level, preserving tangential motion.
 function keepOutsideScenery(car,oldX,oldY){
   if(typeof nearbyTreeTrunks==='undefined' || !nearbyTreeTrunks) return;
-  const radius=10;
+  const shape=OverdriveCars.sizeForModel(car.carModel);
+  const radius=shape.halfWidth;
   function impact(nx,ny){
     const normal=car.vx*nx+car.vy*ny;
     if(normal<0){
@@ -192,7 +196,7 @@ function keepOutsideScenery(car,oldX,oldY){
     const reach=radius+trunkRadius;
     if(Math.abs(car.x-cx)>reach+25 || Math.abs(car.y-cy)>reach+25) continue;
     const fx=Math.cos(car.a),fy=Math.sin(car.a);
-    for(const end of [-11,0,11]){
+    for(const end of shape.bumpers){
       const dx=car.x+fx*end-cx,dy=car.y+fy*end-cy;
       const d=Math.hypot(dx,dy);
       if(d>=reach) continue;
@@ -211,7 +215,7 @@ function keepOutsideScenery(car,oldX,oldY){
   const norm=Math.hypot(gradient,1);
   const nx=-side*gradient/norm,ny=side/norm;
   const clearance=(side*(car.y-streamY(car.x))-streamHalf(car.x))/norm;
-  const extent=radius+11*Math.abs(Math.cos(car.a)*nx+Math.sin(car.a)*ny);
+  const extent=radius+shape.bumpers[2]*Math.abs(Math.cos(car.a)*nx+Math.sin(car.a)*ny);
   if(clearance<extent && clearance> -extent-20){
     car.x+=nx*(extent-clearance); car.y+=ny*(extent-clearance);
     impact(nx,ny);
@@ -220,7 +224,8 @@ function keepOutsideScenery(car,oldX,oldY){
 
 function carAxes(car){
   const fx=Math.cos(car.a),fy=Math.sin(car.a);
-  return [{x:fx,y:fy,half:20},{x:-fy,y:fx,half:10}];
+  const shape=OverdriveCars.sizeForModel(car.carModel);
+  return [{x:fx,y:fy,half:shape.halfLength},{x:-fy,y:fx,half:shape.halfWidth}];
 }
 
 function projectionRadius(axes,x,y){
@@ -250,7 +255,7 @@ function separateCar(car,dx,dy){
 function rearBumperContact(follower,leader,axes,followingAxes,along,lateral){
   const leaderSpeed=leader.vx*axes[0].x+leader.vy*axes[0].y;
   const followerSpeed=follower.vx*axes[0].x+follower.vy*axes[0].y;
-  if(along<17 || along<Math.abs(lateral)*.86 || leaderSpeed < -4 || followerSpeed < -4) return false;
+  if(along<axes[0].half*.85 || along<Math.abs(lateral)*.86 || leaderSpeed < -4 || followerSpeed < -4) return false;
 
   // Move the following car just far enough along the leader's heading to
   // clear the overlap on one separating axis.
@@ -281,7 +286,8 @@ function rearBumperContact(follower,leader,axes,followingAxes,along,lateral){
 function carContact(a,b){
   if(Number.isFinite(a.finishedAt) || Number.isFinite(b.finishedAt)) return;
   const dx=b.x-a.x,dy=b.y-a.y;
-  if(dx*dx+dy*dy>45*45) return;
+  const reach=OverdriveCars.sizeForModel(a.carModel).radius+OverdriveCars.sizeForModel(b.carModel).radius;
+  if(dx*dx+dy*dy>reach*reach) return;
   const axesA=carAxes(a),axesB=carAxes(b);
   let depth=Infinity,nx=0,ny=0;
   for(const axis of [...axesA,...axesB]){

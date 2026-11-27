@@ -234,19 +234,20 @@ function paintFacilityGround(ctx,f) {
 // The atlas merges the parked vehicles into the buildings. Separate them
 // at the roof and tent edges so each can scale around its parking position.
 // Coordinates are local to the original 512px atlas tiles.
+const facilityVehicleScale=OverdriveCars.maxLength/42;
 const facilityVehicles = {
   pits: [
-    {scale:.45, anchor:[164,186], outline:[
+    {scale:.45*facilityVehicleScale, anchor:[164,186], outline:[
       [99,54],[225,54],[225,144],[214,144],[214,184],[207,186],
       [117,186],[113,183],[113,144],[107,139],[103,134],[102,127],[99,123],
     ]},
-    {scale:.45, anchor:[370,186], outline:[
+    {scale:.45*facilityVehicleScale, anchor:[370,186], outline:[
       [303,54],[438,54],[437,124],[434,130],[431,135],[428,140],
       [423,145],[421,150],[421,184],[409,186],[325,186],[320,183],[316,145],[303,145],
     ]},
   ],
   rescue: [
-    {scale:.32, anchor:[317,249], outline:[
+    {scale:.32*facilityVehicleScale, anchor:[317,249], outline:[
       [0,0],[512,0],[512,271],[344,271],[330,268],[327,256],[323,250],
       [318,247],[312,247],[306,250],[302,253],[96,253],[88,250],[82,247],
       [75,246],[70,250],[66,258],[65,270],[0,270],
