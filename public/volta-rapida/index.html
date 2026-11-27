@@ -57,13 +57,20 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 @media(max-width:530px){.top{min-height:60px}.bottom{min-height:60px}.controls{gap:6px 12px}.command{font-size:.75rem}.stat strong{font-size:1.35rem}#time{min-width:55px}.reset{padding:8px}.brandmark{width:27px;height:27px}.brand{gap:8px}}
 .course{border-left:1px solid var(--line);padding-left:15px;font:600 clamp(13px,1.4vw,17px) "DM Sans",sans-serif;color:var(--pine)}
 .speedometer{position:absolute;bottom:16px;left:18px;display:flex;align-items:baseline;gap:6px;min-width:104px;padding:9px 12px;border:2px solid #e1d4b8;border-radius:12px;background:#263e37ed;color:#fff2d3;pointer-events:none}
-.standings{position:absolute;top:12px;right:12px;max-width:42%;width:190px;border:1px solid #dbcda6;border-radius:8px;padding:8px 10px;background:#263e37eb;color:#fff2d3;font-size:clamp(.67rem,1.5vw,.82rem);pointer-events:none}
+.standings{position:absolute;z-index:1;top:12px;right:12px;max-width:54%;width:245px;border:1px solid #dbcda6;border-radius:8px;padding:8px 10px;background:#263e37eb;color:#fff2d3;font-size:clamp(.67rem,1.5vw,.82rem);pointer-events:none}
 .standings strong{display:block;margin-bottom:3px}
 .standings ol{list-style:none;padding:0;margin:0}
 .standings li{display:flex;align-items:center;gap:6px;padding:2px 0}
 .standings li[aria-current]{font-weight:700;color:#ffdc91}
 .standings .dot{width:8px;height:8px;border-radius:50%;flex:none}
 .standings .driver{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.standings .interval{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums;color:#eee2c5}
+.standings .watching .driver{text-decoration:underline;text-underline-offset:3px}
+#spectate{margin-top:10px}
+.spectator-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--frame);border-radius:8px;box-shadow:0 2px 8px #25362755}
+.spectator-bar .reset{padding:6px 9px}
+.spectator-bar span{max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:620px){.spectator-bar{bottom:80px;max-width:96%;width:max-content}.finish.show{align-items:end}.standings li{gap:4px}}
 .race-notice{box-sizing:border-box;margin:0;position:absolute;top:14px;left:50%;transform:translateX(-50%);width:max-content;max-width:90%;padding:7px 12px;border-radius:7px;background:#263e37ed;color:#fff2d3;font-size:.84rem;text-align:center;pointer-events:none}
 .speedometer strong{font:700 2rem/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;min-width:2.2ch;text-align:right}
 .speedometer span{font-size:.75rem;color:#e1d4b8}
@@ -79,7 +86,7 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
     <div class="race">
       <div class="stat"><small>Posição</small><strong id="position">1 / 8</strong></div>
       <div class="stat"><small>Volta</small><strong id="lap">1 / 3</strong></div>
-      <div class="stat"><small>Tempo</small><strong id="time">00:00.0</strong></div>
+      <div class="stat"><small id="time-label">Volta atual</small><strong id="time">00:00,00</strong></div>
     </div>
   </header>
   <main class="stage">
@@ -92,7 +99,14 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
       <div class="card"><h2>Corrida concluída</h2><p id="result"></p>
         <div class="result-actions"><button id="again">Jogar de novo</button><button id="result-options">Mudar nível</button></div>
         <div id="online-result-actions" hidden><button id="online-again">Jogar de novo</button><p id="rematch-status" role="status" hidden></p></div>
+        <button id="spectate" hidden>Modo espectador</button>
       </div>
+    </div>
+    <div id="spectator-bar" class="spectator-bar" hidden aria-label="Modo espectador">
+      <button id="watch-prev" class="reset" aria-label="Piloto anterior (A)">A ‹</button>
+      <span>Assistindo <strong id="watch-name"></strong></span>
+      <button id="watch-next" class="reset" aria-label="Próximo piloto (D)">› D</button>
+      <button id="watch-result" class="reset">Resultado</button>
     </div>
     <div class="race-options" id="race-options" role="dialog" aria-modal="true" aria-labelledby="race-options-title">
       <form class="card" id="race-setup">
@@ -132,9 +146,10 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 <script src="./grass.js?v=23"></script>
 <script src="./crowd.js?v=29"></script>
 <script src="./terrace.js?v=30.1"></script>
-<script src="./vehicle.js?v=42"></script>
-<script src="./race.js?v=41"></script>
-<script src="./online-race.js?v=5"></script>
+<script src="./vehicle.js?v=43"></script>
+<script src="./race.js?v=43"></script>
+<script src="./race-hud.js?v=43"></script>
+<script src="./online-race.js?v=6"></script>
 <script>
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d',{alpha:false});
 const lapEl=document.querySelector('#lap'),timeEl=document.querySelector('#time');
@@ -143,7 +158,7 @@ const setup=document.querySelector('#race-options'),setupForm=document.querySele
 const levelButton=document.querySelector('#change-level'),raceNotice=document.querySelector('#race-notice');
 const difficultyNames={facil:'Fácil',medio:'Médio',dificil:'Difícil'};
 const keys={},camera={x:grid.x,y:grid.y};
-let difficulty='medio',car,bots,lap,start,elapsed,done,last=0,raceLeader=gridLead;
+let difficulty='medio',car,bots,start,elapsed,done,last=0,raceLeader=gridLead;
 const skidCanvas=document.createElement('canvas');
 skidCanvas.width=W;skidCanvas.height=H;
 const skidCtx=skidCanvas.getContext('2d');
@@ -161,16 +176,18 @@ function reset(){
   bots=createOpponents(difficulty);
   camera.x=car.x;
   camera.y=car.y;
-  lap=1;start=0;elapsed=0;done=false;raceLeader=car.progress;
+  resetPresentation();
+  start=0;elapsed=0;done=false;raceLeader=car.progress;
   resetCrowds();
   finish.classList.remove('show');
   lapEl.textContent='1 / '+raceLaps;
   positionEl.textContent=(1+bots.filter(bot=>aheadInRace(bot,car)).length)+' / '+(bots.length+1);
-  timeEl.textContent='00:00.0';
+  timeEl.textContent=clockTime(0);
   speedEl.textContent='0';
   raceNotice.hidden=true;
+  if(setup.hidden) renderStandings(raceOrder([car,...bots]),0);
 }
-function fmt(t){let m=Math.floor(t/60),s=Math.floor(t%60),d=Math.floor(t*10)%10;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+d}
+
 function paintSkidMarks(driver){
   if(!driver.drifting || Math.abs(driver.lane)>TRACK.halfWidth){
     driver.lastSkid=null;
@@ -206,37 +223,17 @@ function raceControls(){
 
 function update(dt,now){
   if(onlineRace.tick(dt,now))return;
-  if(done || !setup.hidden)return;
+  if(raceClosed || !setup.hidden)return;
   if(!start){
     if(!keys.w)return;
     start=now;
   }
-  elapsed=(now-start)/1000;
+  elapsed+=dt;
   advanceField(car,bots,raceControls(),dt,elapsed);
+  const drivers=[car,...bots];
+  raceClosed=drivers.every(driver=>Number.isFinite(driver.finishedAt));
+  collectIntervals(drivers,elapsed);
   updateRaceHud(now);
-}
-
-function updateRaceHud(now){
-  cueRaceCrowds(now);
-  paintSkidMarks(car);
-  bots.forEach(paintSkidMarks);
-  const place=1+bots.filter(bot=>aheadInRace(bot,car)).length;
-  const position=place+' / '+(bots.length+1);
-  if(positionEl.textContent!==position) positionEl.textContent=position;
-  const speed=String(Math.round(Math.hypot(car.vx,car.vy)*kilometersPerHour));
-  if(speedEl.textContent!==speed) speedEl.textContent=speed;
-  raceNotice.hidden=!car.missedLap;
-  const nextLap=Math.min(raceLaps,1+Math.floor(car.checkpoint/gateCount));
-  if(nextLap!==lap){
-    lap=nextLap;
-    lapEl.textContent=lap+' / '+raceLaps;
-  }
-  if(Number.isFinite(car.finishedAt)){
-    done=true;
-    document.querySelector('#result').textContent=place+'º lugar de '+(bots.length+1)+' · '+fmt(car.finishedAt);
-    finish.classList.add('show');
-  }
-  timeEl.textContent=fmt(done?car.finishedAt:elapsed);
 }
 
 function cueRaceCrowds(now){
@@ -330,7 +327,7 @@ function drawMap(driver,opponents){
   for(const bot of opponents){
     mapCtx.beginPath();
     mapCtx.arc(bot.x*mapScale+mapXOffset,bot.y*mapScale+mapYOffset,3.4,0,Math.PI*2);
-    mapCtx.fillStyle=bot.paint[2];
+    mapCtx.fillStyle=(bot.paint??playerPaint)[2];
     mapCtx.fill();
   }
   mapCtx.translate(driver.x*mapScale+mapXOffset,driver.y*mapScale+mapYOffset);
@@ -345,10 +342,13 @@ function draw(now,dt){
   if(!ready)return;
   const decay=Math.exp(-dt/.085);
   const driver=carView(car,decay),opponents=bots.map(bot=>carView(bot,decay));
+  const watchIndex=watching?bots.indexOf(watching):-1;
+  const target=watchIndex>=0?opponents[watchIndex]:driver;
+  const motion=watching??car;
   const lead = reducedMotion.matches ? .08 : .29;
   const blend=1-Math.exp(-dt*8);
-  camera.x+=(driver.x+car.vx*lead-camera.x)*blend;
-  camera.y+=(driver.y+car.vy*lead-camera.y)*blend;
+  camera.x+=(target.x+motion.vx*lead-camera.x)*blend;
+  camera.y+=(target.y+motion.vy*lead-camera.y)*blend;
   const width=canvas.width/scale, height=canvas.height/scale;
   const left=Math.max(0,Math.min(W-width,camera.x-width/2));
   const top=Math.max(0,Math.min(H-height,camera.y-height/2));
@@ -376,15 +376,21 @@ function draw(now,dt){
   paintCar(ctx,driver);
   if(objectShadows){
     const objects=scenery.filter(([,x,y,s])=>x+s>left && y+s>top && x-s<left+width && y-s<top+height);
-    paintObjects(ctx,gardenArt,objectShadows,objects,reducedMotion.matches?0:now/1000,houseArt,driver);
+    paintObjects(ctx,gardenArt,objectShadows,objects,reducedMotion.matches?0:now/1000,houseArt,target);
   }
   onlineRace.drawLabels(ctx,driver,opponents,left,top,width,height);
-  drawMap(driver,opponents);
+  drawMap(target,watchIndex<0?opponents:[driver,...opponents.filter(view=>view!==target)]);
 }
 function frame(t){let dt=Math.min((t-last)/1000||0,.04);last=t;if(ready)update(dt,t);draw(t,dt);requestAnimationFrame(frame)}
 addEventListener('keydown',event=>{
-  if(!setup.hidden || done || event.ctrlKey || event.metaKey || event.altKey) return;
+  if(!setup.hidden || event.ctrlKey || event.metaKey || event.altKey) return;
   const key=event.key.toLowerCase();
+  if(watching && (key==='a'||key==='d')){
+    event.preventDefault();
+    if(!event.repeat) cycleSpectator(key==='d'?1:-1);
+    return;
+  }
+  if(done) return;
   if(['w','a','s','d','shift'].includes(key)){
     keys[key]=true;
     event.preventDefault();

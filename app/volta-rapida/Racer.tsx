@@ -14,7 +14,7 @@ type Room = { code: string; me: Player };
 type Match = { id: string; startedAt: number; host: string; difficulty: Difficulty; fillBots: boolean; players: Player[] };
 type Result = { id: number; name: string; place: number; time: number | null };
 type Snapshot = {
-  match: Match; frame: number; cars: unknown[]; remaining: number; elapsed: number; results: Result[] | null;
+  match: Match; frame: number; cars: unknown[]; raceClosed: boolean; remaining: number; elapsed: number; results: Result[] | null;
 };
 type Input = {
   raceId: string; seq: number; controls: { throttle: number; steer: number; drift: boolean };
@@ -299,7 +299,7 @@ export function Racer({ invite }: { invite: string }) {
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {(solo || room) && <iframe
       key={room?.code ?? "solo"} ref={iframe} className={styles.game} hidden={!solo && !active}
-      title="Volta Rápida — Circuito do Bosque" src="/volta-rapida/index.html?v=online2" onLoad={connectFrame}
+      title="Volta Rápida — Circuito do Bosque" src="/volta-rapida/index.html?v=43" onLoad={connectFrame}
     />}
   </>;
 }
