@@ -3,26 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Volta Rápida</title>
+<title>Overdrive</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=DM+Sans:wght@400;600;700&display=swap');
+@font-face{font-family:"Barlow Condensed";font-weight:600;src:url("./fonts/barlow-condensed-600.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"Barlow Condensed";font-weight:700;src:url("./fonts/barlow-condensed-700.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"Barlow Condensed";font-weight:800;src:url("./fonts/barlow-condensed-800.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"DM Sans";font-weight:400 700;src:url("./fonts/dm-sans.woff2") format("woff2");font-display:swap}
 :root{--frame:#efe6cd;--line:#c8bc9d;--ink:#2e3a2d;--muted:#59634e;--rust:#9b4535;--pine:#455735}
 *{box-sizing:border-box}
 body{margin:0;background:#536743;color:var(--ink);font-family:"DM Sans",system-ui,sans-serif}
-.app{height:100dvh;min-height:420px;display:grid;grid-template-rows:auto minmax(0,1fr) auto}
-.top,.bottom{position:relative;z-index:1;background:var(--frame);display:flex;align-items:center;justify-content:space-between;padding:0 clamp(14px,4vw,60px)}
-.top{min-height:70px;border-bottom:1px solid #544a35;box-shadow:0 3px 12px #2d392636}
-.brand{display:flex;align-items:center;gap:13px}
-.brandmark{width:36px;height:36px;border-radius:8px;background:var(--rust);display:flex;align-items:center;justify-content:center;gap:3px;box-shadow:inset 0 0 0 1px #592c2a39}
-.brandmark i{width:4px;height:17px;background:var(--frame);transform:skewX(-22deg);border-radius:1px}
-.brandmark i:first-child{height:10px;align-self:center;margin-top:7px}
-.brand h1{margin:0;font:800 clamp(23px,3vw,34px)/1 "Barlow Condensed",sans-serif;letter-spacing:.045em;text-transform:uppercase}
-.race{display:flex;align-items:center;gap:clamp(15px,3vw,37px)}
-.stat{display:grid;gap:2px}
-.stat+.stat{border-left:1px solid var(--line);padding-left:clamp(15px,3vw,37px)}
-.stat small{color:var(--muted);font-size:.72rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase}
-.stat strong{font:700 1.7rem/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums}
-#time{min-width:71px}
 .card button:disabled{opacity:.68;cursor:default}
 .race-options{position:absolute;z-index:2;inset:0;display:grid;place-items:center;background:#252d22a8;padding:16px;overflow:auto}
 [hidden]{display:none!important}
@@ -32,31 +21,56 @@ body{margin:0;background:#536743;color:var(--ink);font-family:"DM Sans",system-u
 .levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .levels label{position:relative;min-width:0;cursor:pointer}
 .levels input{position:absolute;width:1px;height:1px;opacity:0}
+.setup-car{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0;font-size:.86rem;font-weight:700}
+.setup-car select{font:inherit;color:inherit;background:#293f35;border:1px solid #a29770;border-radius:6px;padding:5px 8px}
+.setup-car img{width:32px;height:48px;object-fit:contain}
 .levels span{display:block;border:1px solid #b7a780;border-radius:6px;padding:9px 4px;font-weight:700}
 .levels input:checked+span{background:var(--pine);border-color:var(--pine);color:#fff6dc}
 .levels input:focus-visible+span{outline:2px solid var(--rust);outline-offset:3px}
-.race-actions,.result-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center}
-.race-actions{flex-shrink:0}
-@media(max-width:530px){.race{gap:8px}.stat+.stat{padding-left:8px}.race-actions{flex-direction:column;align-items:stretch}.race-options .card h2{font-size:2.25rem}}
 .stage{position:relative;min-width:0;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#829860,#587145 88%)}
 canvas{display:block;width:100%;height:100%}
-.bottom{min-height:66px;border-top:1px solid #544a35;gap:12px;box-shadow:0 -3px 12px #2d392627}
-.controls{display:flex;align-items:center;gap:clamp(8px,2vw,24px);flex-wrap:wrap;padding:10px 0}
-.command{display:flex;align-items:center;gap:5px;color:var(--muted);white-space:nowrap;font-size:.85rem;font-weight:600}
-kbd{display:inline-grid;place-items:center;min-width:24px;height:25px;padding:0 5px;border:1px solid var(--line);border-bottom:3px solid #b0a584;border-radius:5px;background:#f9f1dc;color:var(--ink);font:700 .77rem "DM Sans",sans-serif}
 button{cursor:pointer;border-radius:6px;font:700 .88rem "DM Sans",sans-serif}
 .reset{background:#e7ddbf;color:var(--ink);border:1px solid #b7a780;padding:9px 14px}
 .reset:hover{background:#dacfaa}
 button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
-.finish{display:none;position:absolute;inset:0;background:#252d22bc;place-items:center;padding:16px}
-.finish.show{display:grid}
+.finish{display:none;position:absolute;z-index:2;inset:0;place-items:center;padding:clamp(8px,2.5vw,26px);background:#17292045}
+.finish.show{display:grid;grid-template-rows:minmax(0,1fr)}
+.finish.show .results-card{animation:results-open 320ms cubic-bezier(.18,.72,.24,1) both}
+.results-card{display:flex;flex-direction:column;width:min(100%,530px);height:min(480px,100%);max-height:100%;min-height:0;color:#fff0cf;background:#23392fdb;border:1px solid #dac9a384;border-radius:18px;box-shadow:0 16px 45px #12211988;text-align:left}
+.results-header{display:flex;align-items:center;gap:14px;padding:clamp(12px,3.2vh,24px) clamp(14px,4vw,26px);border-bottom:1px solid #dac9a338}
+.results-flag{flex:none;width:36px;height:36px;border-radius:8px;background: conic-gradient(#f0d097 25%,#743e30 0 50%,#f0d097 0 75%,#743e30 0) 0 0 / 18px 18px;box-shadow:0 0 0 1px #efce9455;transform:rotate(-8deg)}
+.results-header h2{margin:0;font:800 clamp(1.7rem,4vw,2.65rem)/1 "Barlow Condensed",sans-serif}
+.results-header p{margin:4px 0 0;color:#d9c9a9;font-size:.8rem}
+.results-scroll{flex:1 1 auto;min-height:0;container-type:size;overflow-x:hidden;overflow-y:hidden;padding:0 clamp(12px,4vw,22px) 6px;scrollbar-color:#ac9e7d #23392f;scrollbar-width:thin}
+.results-scroll.has-more{overflow-y:auto}
+.results-table{width:100%;table-layout:fixed;border-spacing:0 4px;font-size:.9rem}
+.results-table thead{position:sticky;top:0;z-index:1;background:#23392f;color:#ddcba6;text-align:left;font-size:.68rem;letter-spacing:.10em;text-transform:uppercase}
+.results-table th{height:24px;padding:0 10px}
+.results-table td{height:calc((100cqh - 32px)/8 - 4px);padding:0 10px}
+.results-table th:first-child,.results-table td:first-child{width:45px;text-align:center}
+.results-table th:last-child,.results-table td:last-child{text-align:right;white-space:nowrap}
+.results-table td{background:#fff0cf0d}
+.results-table td:first-child{border-radius:7px 0 0 7px;color:#e5c780;font-weight:700}
+.results-table td:last-child{border-radius:0 7px 7px 0;font:700 1.1rem "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums}
+.results-table td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.results-table tr[aria-current] td{background:#6a562d;color:#fff3d5;font-weight:700}
+.results-table tr[aria-current] td:first-child{box-shadow:inset 3px 0 #edbe63}
+.results-table tr.unfinished td:last-child{font:400 .76rem "DM Sans",sans-serif;color:#dfd0af}
+.results-table tr.arrival{animation:arrival-in 260ms ease-out both}
+.results-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;padding:clamp(9px,2vh,15px) clamp(12px,4vw,22px);border-top:1px solid #dac9a338}
+.results-footer button{padding:8px 11px;border:1px solid #d6be8b80;background:#fbecd210;color:#fff0cf}
+.results-footer button:hover{background:#fbecd229}
+.results-footer #again,.results-footer #online-again{background:#e9c47a;color:#292c22;border-color:#e9c47a}
+.results-footer #again:hover,.results-footer #online-again:hover{background:#f8d99b}
+.results-footer button:disabled{opacity:.65;cursor:default}
+#rematch-status{color:#ddcba6;font-size:.76rem;margin:4px 0 0}
+@keyframes results-open{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes arrival-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.finish.show .results-card,.results-table tr.arrival{animation:none}}
 .card{padding:30px clamp(22px,6vw,64px);text-align:center;background:var(--frame);border:1px solid #cbbd94;border-radius:14px;box-shadow:0 14px 55px #252b21a0}
 .card h2{font:800 2.8rem/1 "Barlow Condensed",sans-serif;margin:0}
 .card p{color:var(--muted);margin:12px 0 20px}
 .card button{border:0;background:var(--pine);color:#fff6dc;padding:11px 16px}
-@media(max-width:530px){.top{min-height:60px}.bottom{min-height:60px}.controls{gap:6px 12px}.command{font-size:.75rem}.stat strong{font-size:1.35rem}#time{min-width:55px}.reset{padding:8px}.brandmark{width:27px;height:27px}.brand{gap:8px}}
-.course{border-left:1px solid var(--line);padding-left:15px;font:600 clamp(13px,1.4vw,17px) "DM Sans",sans-serif;color:var(--pine)}
-.speedometer{position:absolute;bottom:16px;left:18px;display:flex;align-items:baseline;gap:6px;min-width:104px;padding:9px 12px;border:2px solid #e1d4b8;border-radius:12px;background:#263e37ed;color:#fff2d3;pointer-events:none}
 .standings{position:absolute;z-index:1;top:12px;right:12px;max-width:54%;width:245px;border:1px solid #dbcda6;border-radius:8px;padding:8px 10px;background:#263e37eb;color:#fff2d3;font-size:clamp(.67rem,1.5vw,.82rem);pointer-events:none}
 .standings strong{display:block;margin-bottom:3px}
 .standings ol{list-style:none;padding:0;margin:0}
@@ -67,99 +81,242 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 .standings .interval{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums;color:#eee2c5}
 .standings .lap-split{background:#ffe5a6;color:#283a29;font-weight:700;border-radius:3px;padding:1px 4px}
 .standings .watching .driver{text-decoration:underline;text-underline-offset:3px}
-#spectate{margin-top:10px}
 .spectator-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--frame);border-radius:8px;box-shadow:0 2px 8px #25362755}
 .spectator-bar .reset{padding:6px 9px}
 .spectator-bar span{max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media(max-width:620px){.spectator-bar{bottom:80px;max-width:96%;width:max-content}.finish.show{align-items:end}.standings li{gap:4px}}
-.race-notice{box-sizing:border-box;margin:0;position:absolute;top:14px;left:50%;transform:translateX(-50%);width:max-content;max-width:90%;padding:7px 12px;border-radius:7px;background:#263e37ed;color:#fff2d3;font-size:.84rem;text-align:center;pointer-events:none}
-.speedometer strong{font:700 2rem/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;min-width:2.2ch;text-align:right}
-.speedometer span{font-size:.75rem;color:#e1d4b8}
-@media(max-width:620px){.speedometer{bottom:9px;left:9px;min-width:86px;padding:7px 9px}.speedometer strong{font-size:1.65rem}}
-#map{position:absolute;bottom:16px;right:18px;width:137px;height:93px;background:#263e37ed;border:2px solid #e1d4b8;border-radius:15px;box-shadow:0 3px 0 #233a2e70;pointer-events:none}
-@media(max-width:620px){.brand{display:grid;grid-template-columns:auto auto;column-gap:8px}.brandmark{grid-row:span 2}.course{font-size:11px;border:0;padding:0}.brand h1{font-size:21px}#map{width:100px;height:68px;bottom:9px;right:9px}}
+.start-signal{position:absolute;z-index:1;top:clamp(12px,4%,32px);left:50%;display:flex;gap:clamp(8px,1.5vw,15px);padding:9px 14px;border:1px solid #cfc298;border-radius:16px;background:linear-gradient(#344b40,#1d2d27);box-shadow:0 3px 0 #17241f,0 9px 23px #12211970;pointer-events:none;opacity:0;transform:translate(-50%,-8px) scale(.97);transition:opacity .52s ease,transform .52s ease}
+.start-signal[data-phase="waiting"],.start-signal[data-phase="red"],.start-signal[data-phase="amber"],.start-signal[data-phase="green"]{opacity:1;transform:translateX(-50%);transition-duration:.16s}
+.start-lamp{width:clamp(28px,5.5vw,44px);aspect-ratio:1;border:3px solid #182820;border-radius:50%;background:radial-gradient(circle at 36% 28%,var(--dim),#19291f 85%);box-shadow:inset 0 2px 5px #13221d,0 0 0 1px #b4ab7c55;transition:box-shadow .15s ease}
+.start-lamp.red{--dim:#66382e;--lit:#f15545;--shine:#ffe0ba}
+.start-lamp.amber{--dim:#6f562d;--lit:#f4b841;--shine:#fff2b6}
+.start-lamp.green{--dim:#395d39;--lit:#69e080;--shine:#e1ffe2}
+[data-phase="red"] .red,[data-phase="amber"] .amber,[data-phase="green"] .green{background:radial-gradient(circle at 36% 28%,var(--shine),var(--lit) 54%,var(--dim) 112%);box-shadow:0 0 16px var(--lit),0 0 0 1px var(--lit)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+#sound-toggle{position:absolute;bottom:68px;left:18px;z-index:3;background:#263e37ed;color:#fff2d3;border:1px solid #dbcda6;padding:6px 9px;font-size:.73rem}
+@media(prefers-reduced-motion:reduce){.start-signal,.start-lamp{transition:none}}
+.loading-screen{position:fixed;inset:0;z-index:10;display:grid;place-items:center;overflow:auto;padding:18px;background:linear-gradient(105deg,#fff 8%,#f6faff 55%,#dfedf9 100%);color:#233e56}
+.loading-panel{width:min(100%,460px,calc(100dvh - 85px));min-width:min(100%,210px);text-align:center}
+.loading-logo{display:block;width:100%;height:auto;aspect-ratio:3/2;color:#103b31;font-weight:700}
+.loading-status{width:min(70%,260px);margin:0 auto;padding:8px 0 15px;font-size:.86rem;font-weight:700;letter-spacing:.035em}
+.loading-status p{margin:0 0 8px}
+.loading-track{height:5px;border-radius:6px;overflow:hidden;background:#d0dfef}
+.loading-fill{width:100%;height:100%;overflow:hidden;transform:scaleX(var(--loading-progress,0));transform-origin:left;background:#345d89;transition:transform 220ms ease-out}
+.loading-fill::after{content:"";display:block;width:38%;height:100%;background:linear-gradient(90deg,transparent,#fff1ce,transparent);animation:loading-sweep 1s ease-in-out infinite}
+.loading-screen.fade-out{animation:loading-exit 280ms ease both}
+.loading-screen[data-failed] .loading-track{display:none}
+@keyframes loading-sweep{from{transform:translateX(-100%)}to{transform:translateX(360%)}}
+@keyframes loading-exit{to{opacity:0}}
+@media(prefers-reduced-motion:reduce){.loading-fill{transition:none}.loading-fill::after,.loading-screen.fade-out{animation:none}}
 </style>
+<link rel="stylesheet" href="./race-interface.css?v=75">
 </head>
 <body>
-<div class="app">
-  <header class="top">
-    <div class="brand"><span class="brandmark" aria-hidden="true"><i></i><i></i><i></i></span><h1>Volta Rápida</h1><span class="course">Circuito do Bosque</span></div>
-    <div class="race">
-      <div class="stat"><small>Posição</small><strong id="position">1 / 8</strong></div>
-      <div class="stat"><small>Volta</small><strong id="lap">1 / 3</strong></div>
-      <div class="stat"><small id="time-label">Volta atual</small><strong id="time">00:00,00</strong></div>
+<div id="loading-screen" class="loading-screen">
+  <div class="loading-panel">
+    <img class="loading-logo" src="./overdrive-mark.webp" width="1080" height="720" fetchpriority="high" alt="Overdrive">
+    <div class="loading-status">
+      <p id="loading-status" role="status" hidden></p>
+      <div class="loading-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-i18n-label="loading"><div class="loading-fill"></div></div>
+      <button class="reset" id="loading-retry" type="button" hidden data-i18n="retry"></button>
     </div>
-  </header>
+  </div>
+</div>
+<div class="app" inert aria-busy="true">
   <main class="stage">
-    <canvas id="game" tabindex="-1" aria-label="Pista de corrida vista de cima"></canvas>
-    <p id="race-notice" class="race-notice" hidden></p>
-    <aside class="standings" id="standings" hidden><strong>Classificação</strong><ol></ol></aside>
-    <div class="speedometer" aria-label="Velocidade em quilômetros por hora"><strong id="speed">0</strong><span>km/h</span></div>
-    <canvas id="map" width="266" height="182" aria-label="Mapa do Circuito do Bosque"></canvas>
-    <div class="finish" id="finish">
-      <div class="card"><h2>Corrida concluída</h2><p id="result"></p>
-        <div class="result-actions"><button id="again">Jogar de novo</button><button id="result-options">Mudar nível</button></div>
-        <div id="online-result-actions" hidden><button id="online-again">Jogar de novo</button><p id="rematch-status" role="status" hidden></p></div>
-        <button id="spectate" hidden>Modo espectador</button>
-      </div>
+    <canvas id="game" tabindex="-1" data-i18n-label="trackView"></canvas>
+    <div id="start-signal" class="start-signal" data-phase="off" aria-hidden="true">
+      <span class="start-lamp red"></span><span class="start-lamp amber"></span><span class="start-lamp green"></span>
     </div>
-    <div id="spectator-bar" class="spectator-bar" hidden aria-label="Modo espectador">
-      <button id="watch-prev" class="reset" aria-label="Piloto anterior (A)">A ‹</button>
-      <span>Assistindo <strong id="watch-name"></strong></span>
-      <button id="watch-next" class="reset" aria-label="Próximo piloto (D)">› D</button>
-      <button id="watch-result" class="reset">Resultado</button>
+    <span id="start-status" class="sr-only" role="status"></span>
+    <button id="sound-toggle" type="button" aria-pressed="false">Ativar som</button>
+    <section class="course-hud" aria-label="Whispering Woods">
+      <span class="course">Whispering Woods</span>
+      <div class="race">
+        <div class="stat"><small data-i18n="position"></small><strong id="position">1 / 8</strong></div>
+        <div class="stat"><small data-i18n="lap"></small><strong id="lap">0 / 3</strong></div>
+      </div>
+    </section>
+    <aside class="standings" id="standings" hidden><strong data-i18n="standings"></strong><ol></ol></aside>
+    <div class="speedometer" role="group" data-i18n-label="speed">
+      <svg viewBox="0 0 128 128" aria-hidden="true">
+        <circle cx="64" cy="64" r="59" fill="none" stroke="#8b98a5" stroke-opacity=".28"/>
+        <g id="dial-scale"></g>
+        <path id="speed-needle" d="M62 67L63.5 19Q64 17 64.5 19L66 67Z"/>
+        <circle class="dial-hub" cx="64" cy="64" r="4"/>
+      </svg>
+      <div class="speed-readout"><strong id="speed">0</strong><span>km/h</span></div>
+    </div>
+    <canvas id="map" width="266" height="182" data-i18n-label="map"></canvas>
+    <div class="finish" id="finish">
+      <section class="results-card" aria-labelledby="results-title">
+        <header class="results-header">
+          <span class="results-flag" aria-hidden="true"></span>
+          <div><h2 id="results-title" data-i18n="resultsTitle"></h2><p id="results-count" role="status"></p></div>
+        </header>
+        <div class="results-scroll">
+          <table class="results-table" aria-labelledby="results-title">
+            <thead><tr><th scope="col" data-i18n="placeShort"></th><th scope="col" data-i18n="driver"></th><th scope="col" data-i18n="totalTime"></th></tr></thead>
+            <tbody id="results-rows"></tbody>
+          </table>
+        </div>
+        <footer class="results-footer">
+          <div class="result-actions"><button id="again" data-i18n="again"></button><button id="result-options" data-i18n="raceSetup"></button></div>
+          <div id="online-result-actions" hidden><button id="online-again" data-i18n="again"></button><p id="rematch-status" role="status" hidden></p></div>
+          <button id="spectate" hidden data-i18n="spectate"></button>
+        </footer>
+      </section>
+    </div>
+    <div id="spectator-bar" class="spectator-bar" hidden data-i18n-label="spectate">
+      <button id="watch-prev" class="reset" data-i18n-label="previousDriver">A ‹</button>
+      <span><span data-i18n="watching"></span> <strong id="watch-name"></strong></span>
+      <button id="watch-next" class="reset" data-i18n-label="nextDriver">› D</button>
+      <button id="watch-result" class="reset" data-i18n="results"></button>
     </div>
     <div class="race-options" id="race-options" role="dialog" aria-modal="true" aria-labelledby="race-options-title">
       <form class="card" id="race-setup">
-        <h2 id="race-options-title">Escolha a dificuldade</h2>
-        <p>Três voltas contra sete adversários.</p>
+        <h2 id="race-options-title" data-i18n="chooseDifficulty"></h2>
+        <p data-i18n="soloDescription"></p>
         <fieldset>
-          <legend>Nível dos adversários</legend>
+          <legend data-i18n="botDifficulty"></legend>
           <div class="levels">
-            <label><input type="radio" name="difficulty" value="facil"><span>Fácil</span></label>
-            <label><input type="radio" name="difficulty" value="medio" checked><span>Médio</span></label>
-            <label><input type="radio" name="difficulty" value="dificil"><span>Difícil</span></label>
+            <label><input type="radio" name="difficulty" value="facil"><span data-i18n="facil"></span></label>
+            <label><input type="radio" name="difficulty" value="medio" checked><span data-i18n="medio"></span></label>
+            <label><input type="radio" name="difficulty" value="dificil"><span data-i18n="dificil"></span></label>
           </div>
         </fieldset>
-        <button type="submit">Ir para a pista</button>
-        <p>Pressione W para largar.</p>
+        <label class="setup-car">
+          <span data-i18n="chooseCar"></span>
+          <select name="carModel" required></select>
+          <img id="setup-car-preview" alt="" hidden>
+        </label>
+        <button type="submit" data-i18n="goToTrack"></button>
       </form>
     </div>
+    <dialog id="race-menu" class="race-menu" aria-labelledby="race-menu-title">
+      <section class="race-menu-card">
+        <h2 id="race-menu-title" data-i18n="raceMenu"></h2>
+        <div id="race-menu-default">
+          <p id="race-online-note" data-i18n="onlineContinues" hidden></p>
+          <div class="race-menu-actions">
+            <button id="race-resume" type="button" data-i18n="resume" autofocus></button>
+            <button id="race-retire" type="button" data-i18n="retire"></button>
+            <button id="race-home" type="button" data-i18n="returnMain"></button>
+            <button id="race-fullscreen" type="button"></button>
+          </div>
+          <div id="race-menu-online" class="race-menu-online" hidden>
+            <button id="race-copy" type="button" data-i18n="copyInvite"></button>
+            <div id="race-rematch-settings" hidden>
+              <label><input id="race-fill-bots" type="checkbox"><span data-i18n="fillBots"></span></label>
+              <label><span data-i18n="botDifficulty"></span><select id="race-bot-level">
+                <option value="facil" data-i18n="facil"></option>
+                <option value="medio" data-i18n="medio"></option>
+                <option value="dificil" data-i18n="dificil"></option>
+              </select></label>
+            </div>
+            <p id="race-room-info" role="status" hidden></p>
+          </div>
+        </div>
+        <div id="race-menu-confirmation" hidden>
+          <p id="race-prompt"></p>
+          <p id="race-action-error" role="status" data-i18n="retireFailed" hidden></p>
+          <div class="race-menu-actions">
+            <button id="race-cancel" type="button" data-i18n="cancel"></button>
+            <button id="race-confirm" type="button" data-i18n="confirm"></button>
+          </div>
+        </div>
+      </section>
+    </dialog>
   </main>
-  <footer class="bottom">
-    <div class="controls" aria-label="Controles">
-      <span class="command"><kbd>W</kbd> Acelerar</span>
-      <span class="command"><kbd>A</kbd><kbd>D</kbd> Virar</span>
-      <span class="command"><kbd>S</kbd> Frear / Ré</span>
-      <span class="command"><kbd>Shift</kbd> Derrapar</span>
-    </div>
-    <div class="race-actions">
-      <button class="reset" id="change-level" aria-label="Mudar dificuldade">Nível · Médio</button>
-      <button class="reset" id="reset">Reiniciar</button>
-    </div>
-  </footer>
 </div>
-<script src="./circuit.js?v=45"></script>
-<script src="./visual.js?v=45"></script>
-<script src="./facilities.js?v=45"></script>
+<script src="./i18n.js?v=77"></script>
+<script src="./car-models.js?v=77"></script>
+<script src="./circuit.js?v=52"></script>
+<script src="./visual.js?v=77"></script>
+<script src="./facilities.js?v=75"></script>
 <script src="./park.js?v=45"></script>
 <script src="./shadows.js?v=23"></script>
+<script src="./forest.js?v=50"></script>
 <script src="./grass.js?v=23"></script>
 <script src="./crowd.js?v=29"></script>
-<script src="./terrace.js?v=46"></script>
-<script src="./vehicle.js?v=46"></script>
-<script src="./race.js?v=46"></script>
-<script src="./race-hud.js?v=45"></script>
-<script src="./online-race.js?v=9"></script>
+<script src="./terrace.js?v=58"></script>
+<script src="./vehicle.js?v=65"></script>
+<script src="./race.js?v=72"></script>
+<script src="./race-hud.js?v=72"></script>
+<script src="./online-race.js?v=77"></script>
+<script src="./race-audio.js?v=76"></script>
+<script src="./race-interface.js?v=76"></script>
 <script>
+const gameApp=document.querySelector('.app');
+const loadingScreen=document.querySelector('#loading-screen');
+const loadingStatus=document.querySelector('#loading-status');
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d',{alpha:false});
-const lapEl=document.querySelector('#lap'),timeEl=document.querySelector('#time');
+const lapEl=document.querySelector('#lap');
 const positionEl=document.querySelector('#position'),speedEl=document.querySelector('#speed'),finish=document.querySelector('#finish');
 const setup=document.querySelector('#race-options'),setupForm=document.querySelector('#race-setup');
-const levelButton=document.querySelector('#change-level'),raceNotice=document.querySelector('#race-notice');
-const difficultyNames={facil:'Fácil',medio:'Médio',dificil:'Difícil'};
+const setupCar=setupForm.elements.carModel;
+const setupCarPreview=document.querySelector('#setup-car-preview');
+const carPrompt=new Option('', '');
+setupCar.add(carPrompt);
+for(const model of OverdriveCars.carModels) setupCar.add(new Option(model.name,model.id));
+setupCar.onchange=()=>{
+  const selected=OverdriveCars.isCarModel(setupCar.value);
+  setupCarPreview.hidden=!selected;
+  if(selected) setupCarPreview.src=OverdriveCars.imageForModel(setupCar.value);
+};
+const fullscreenButton=document.querySelector('#race-fullscreen');
+const externalMenu=new URLSearchParams(location.search).get('menu')==='1';
+let language='pt-BR';
+try { language=OverdriveI18n.normalizeLanguage(JSON.parse(localStorage.getItem('overdrive.preferences'))?.language); } catch {}
+const translate=(key,values)=>OverdriveI18n.text(language,key,values);
+let soloActive=!externalMenu;
+let botCount=opponentPaint.length;
+if(externalMenu){
+  setup.hidden=true;
+  gameApp.classList.add('menu-scene');
+  gameApp.dataset.embedded='';
+  loadingScreen.hidden=true;
+}
+const raceAudio=new RaceAudio(document.querySelector('#sound-toggle'));
+let expanded=false;
+
+function setRacePreferences(preferences){
+  language=OverdriveI18n.normalizeLanguage(preferences.language);
+  expanded=preferences.expanded===true;
+  gameApp.dataset.expanded=String(expanded);
+  const factor=Number(preferences.scale);
+  gameApp.style.setProperty('--fullscreen-scale',expanded && Number.isFinite(factor)?Math.max(1,Math.min(1.65,factor)):1);
+  raceAudio.setPreferences(preferences);
+  updateRaceLanguage();
+}
+
+function updateRaceLanguage(){
+  document.documentElement.lang=language;
+  for(const element of document.querySelectorAll('[data-i18n]')){
+    element.textContent=translate(element.dataset.i18n);
+  }
+  for(const element of document.querySelectorAll('[data-i18n-label]')){
+    element.setAttribute('aria-label',translate(element.dataset.i18nLabel));
+  }
+  fullscreenButton.textContent=translate(expanded?'fullscreenOff':'fullscreenOn');
+  fullscreenButton.setAttribute('aria-pressed',String(expanded));
+  carPrompt.textContent=translate('chooseCar');
+  if(loadingScreen.hasAttribute('data-failed')) loadingStatus.textContent=translate('loadFailed');
+  if(startSignal.dataset.phase!=='off') startStatus.textContent=translate(startSignal.dataset.phase);
+  translateRaceDialog();
+  onlineRace.translateStatus();
+  standingsSignature='';
+}
+const startSignal=document.querySelector('#start-signal');
+const startStatus=document.querySelector('#start-status');
 const keys={},camera={x:grid.x,y:grid.y};
 let difficulty='medio',car,bots,start,elapsed,done,last=0,raceLeader=gridLead;
+let soloCarModel=OverdriveCars.defaultModel;
+let launchRequested=false;
+let pendingRacePresentation=null;
+let preparationProgress=0;
+let lastFrameError='';
+let audioErrorLogged=false;
+let shutterBurst=-Infinity, lastShutter=-1;
 const skidCanvas=document.createElement('canvas');
 skidCanvas.width=W;skidCanvas.height=H;
 const skidCtx=skidCanvas.getContext('2d');
@@ -173,23 +330,50 @@ function reset(){
   clearKeys();
   skidCtx.clearRect(0,0,W,H);
   hasSkids=false;
-  car={...gridPosition(opponentPaint.length),id:0,spec:roadCar};
-  bots=createOpponents(difficulty);
+  car={...gridPosition(botCount),id:0,spec:roadCar,carModel:soloCarModel};
+  bots=createOpponents(difficulty,{count:botCount});
+  const models=OverdriveCars.sampleCarModels(bots.length,[soloCarModel]);
+  bots.forEach((bot,index)=>{bot.carModel=models[index]});
   camera.x=car.x;
   camera.y=car.y;
   resetPresentation();
   start=0;elapsed=0;done=false;raceLeader=car.progress;
+  launchRequested=false;
   resetCrowds();
+  resetPhotographer();
   finish.classList.remove('show');
-  lapEl.textContent='1 / '+raceLaps;
+  lapEl.textContent='0 / '+raceLaps;
   positionEl.textContent=(1+bots.filter(bot=>aheadInRace(bot,car)).length)+' / '+(bots.length+1);
-  timeEl.textContent=clockTime(0);
-  speedEl.textContent='0';
-  raceNotice.hidden=true;
-  if(setup.hidden) renderStandings(raceOrder([car,...bots]),0);
+  resetRaceMenu();
+  updateSpeedometer(0,0);
+  startSignal.dataset.phase='off';
+  startStatus.textContent='';
+  if(soloActive && setup.hidden) renderStandings(raceOrder([car,...bots]),0);
+}
+
+function beginSolo(level,count,carModel){
+  soloActive=true;
+  difficulty=level;
+  botCount=count;
+  soloCarModel=carModel;
+  gameApp.classList.remove('menu-scene');
+  setup.hidden=true;
+  document.querySelector('.result-actions').hidden=false;
+  document.querySelector('#online-result-actions').hidden=true;
+  reset();
+  canvas.focus();
+}
+
+function pauseForMenu(){
+  pendingRacePresentation=null;
+  soloActive=false;
+  onlineRace.stop();
+  gameApp.classList.add('menu-scene');
+  reset();
 }
 
 function paintSkidMarks(driver){
+  if(isRetired(driver)) return;
   if(!driver.drifting || Math.abs(driver.lane)>TRACK.halfWidth){
     driver.lastSkid=null;
     return;
@@ -215,6 +399,7 @@ function paintSkidMarks(driver){
 }
 
 function raceControls(){
+  if(raceMenu.open) return {throttle:0,steer:0,drift:false};
   return {
     throttle:(keys.w?1:0)-(keys.s?1:0),
     steer:(keys.d?1:0)-(keys.a?1:0),
@@ -224,19 +409,23 @@ function raceControls(){
 
 function update(dt,now){
   if(onlineRace.tick(dt,now))return;
-  if(!setup.hidden)return;
+  if(raceMenu.open)return;
+  if(!soloActive || !setup.hidden)return;
   if(raceClosed){
     renderStandings(raceOrder([car,...bots]),now);
     return;
   }
   if(!start){
-    if(!keys.w)return;
-    start=now;
+    if(!launchRequested)return;
+    launchRequested=false;
+    start=now+2000;
   }
+  dt=Math.min(dt,Math.max(0,(now-start)/1000));
+  if(!dt)return;
   elapsed+=dt;
   advanceField(car,bots,raceControls(),dt,elapsed);
   const drivers=[car,...bots];
-  raceClosed=drivers.every(driver=>Number.isFinite(driver.finishedAt));
+  raceClosed=drivers.every(raceTerminal);
   collectIntervals(drivers,elapsed);
   updateRaceHud(now);
 }
@@ -266,33 +455,51 @@ undergrowthArt.src='./ground-plants.webp';
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const terrain=document.createElement('canvas');
 terrain.width=W;terrain.height=H;
-const terrainCtx=terrain.getContext('2d');
+const terrainCtx=terrain.getContext('2d',{alpha:false});
 terrainCtx.imageSmoothingQuality='high';
-const scenery=parkLayout();
+const originalPark=parkLayout();
+const forest=growForest(originalPark);
+const scenery=originalPark.filter(([kind])=>species[kind]>=4);
+const forestReveal=shadowCanvas(144);
+const woodedPark=scenery.filter(([kind,x,y])=>
+  (species[kind]<4 || kind==='flowers' || kind==='rocks') &&
+  Math.abs(TRACK.offsetAt(x,y))>TRACK.halfWidth*2+34);
+const activePark=scenery.filter(item=>!woodedPark.includes(item));
+let forestRevealTiles,nearbyTreeTrunks;
 let objectShadows, grandstand, facilityArt, finishStandIdle, ready=false;
-Promise.allSettled([gardenArt.decode(),groundArt.decode(),undergrowthArt.decode(),houseArt.decode(),raceArt.decode()]).then(()=>{
+const artReady=Promise.allSettled([gardenArt,groundArt,undergrowthArt,houseArt,raceArt].map(image=>image.decode()));
+async function prepareScenery(){
+  await artReady;
+  const yieldToBrowser=()=>new Promise(resolve=>setTimeout(resolve,0));
   const meadow=groundArt.naturalWidth ? meadowMaterial(groundArt) : null;
+  await yieldToBrowser();
   paintMeadow(terrainCtx,0,0,W,H,scenery,meadow,undergrowthArt);
+  await yieldToBrowser();
   paintAccessRoutes(terrainCtx);
   paintCircuit(terrainCtx,Array.from({length:opponentPaint.length+1},(_,slot)=>gridPosition(slot)));
   for(const facility of raceFacilities) paintFacilityGround(terrainCtx,facility);
   paintTrackBarriers(terrainCtx);
   if(gardenArt.naturalWidth){
     objectShadows=buildObjectShadows(gardenArt);
+    await yieldToBrowser();
     grandstand=prepareGrandstand(gardenArt);
     paintObjectShadows(terrainCtx,objectShadows,scenery);
+    await yieldToBrowser();
+    forestRevealTiles=await bakeForest(gardenArt,forest,terrainCtx,objectShadows,woodedPark,houseArt);
+    nearbyTreeTrunks=indexTreeTrunks(scenery,forest,objectShadows);
   }
   facilityArt=prepareFacilityArt(raceArt);
   finishStandIdle=prepareFinishStand();
-  ready=true;
-});
+}
 let scale=1;
 function resizeView(){
   const rect=canvas.getBoundingClientRect();
   const density=Math.min(window.devicePixelRatio||1,3,
     Math.max(1,Math.sqrt(12000000/Math.max(1,rect.width*rect.height))));
-  canvas.width=Math.max(1,Math.round(rect.width*density));
-  canvas.height=Math.max(1,Math.round(rect.height*density));
+  const width=Math.max(1,Math.round(rect.width*density));
+  const height=Math.max(1,Math.round(rect.height*density));
+  if(canvas.width!==width) canvas.width=width;
+  if(canvas.height!==height) canvas.height=height;
   // Keep a useful sight line even on a short or narrow screen.
   scale=Math.max(canvas.width/W,canvas.height/H,
     Math.min(canvas.width/1320,canvas.height/890),density*.47);
@@ -335,6 +542,7 @@ function drawMap(driver,opponents){
     mapCtx.fillStyle=(bot.paint??playerPaint)[2];
     mapCtx.fill();
   }
+  if(isRetired(driver)) return;
   mapCtx.translate(driver.x*mapScale+mapXOffset,driver.y*mapScale+mapYOffset);
   mapCtx.rotate(driver.a);
   mapCtx.beginPath();
@@ -343,8 +551,15 @@ function drawMap(driver,opponents){
   mapCtx.lineWidth=1.5;mapCtx.strokeStyle='#fff4df';mapCtx.stroke();
   mapCtx.fillStyle=(driver.paint ?? playerPaint)[1];mapCtx.fill();
 }
+function withRaceAudio(action){
+  try{ action(); }
+  catch(error){
+    if(!audioErrorLogged) console.warn('Falha no áudio da corrida',error);
+    audioErrorLogged=true;
+  }
+}
+
 function draw(now,dt){
-  if(!ready)return;
   const decay=Math.exp(-dt/.085);
   const driver=carView(car,decay),opponents=bots.map(bot=>carView(bot,decay));
   const watchIndex=watching?bots.indexOf(watching):-1;
@@ -357,10 +572,29 @@ function draw(now,dt){
   const width=canvas.width/scale, height=canvas.height/scale;
   const left=Math.max(0,Math.min(W-width,camera.x-width/2));
   const top=Math.max(0,Math.min(H-height,camera.y-height/2));
+  const listener={x:left+width/2,y:top+height/2};
+  if(pauseStarted===null) withRaceAudio(()=>{
+    if(photo.burst!==shutterBurst){
+      shutterBurst=photo.burst;
+      lastShutter=-1;
+    }
+    const shot=cameraShotAt(now);
+    if(shot>=0 && shot!==lastShutter && facilityArt.has(photographer)){
+      lastShutter=shot;
+      raceAudio.shutter(photoLens,listener,shot);
+    }
+    raceAudio.mix({now,listener,focus:motion,drivers:setup.hidden&&!raceClosed&&(soloActive||onlineRace.active())?[car,...bots].filter(driver=>!isRetired(driver)):[],
+      crowds:[crowdSound('north',terrace,northCrowd,now),crowdSound('finish',finishStand,finishCrowd,now)]});
+  });
   ctx.setTransform(1,0,0,1,0,0);
   // A linear filter is sufficient for the scrolling ground at this scale.
   ctx.imageSmoothingQuality='low';
   ctx.drawImage(terrain,left,top,width,height,0,0,canvas.width,canvas.height);
+  if(forestRevealTiles && Math.abs(target.lane)>=TRACK.halfWidth*2-24){
+    ctx.setTransform(scale,0,0,scale,-left*scale,-top*scale);
+    revealForestFloor(ctx,forestRevealTiles,target,forestReveal);
+    ctx.setTransform(1,0,0,1,0,0);
+  }
   if(hasSkids) ctx.drawImage(skidCanvas,left,top,width,height,0,0,canvas.width,canvas.height);
   ctx.imageSmoothingQuality='medium';
   ctx.setTransform(scale,0,0,scale,-left*scale,-top*scale);
@@ -369,27 +603,85 @@ function draw(now,dt){
     if(f.x+reach<left || f.y+reach<top || f.x-reach>left+width || f.y-reach>top+height) continue;
     if(f===terrace){
       paintNorthTerrace(ctx,crowdMotion(northCrowd,now,reducedMotion.matches),grandstand);
-    }else paintFacilityArt(ctx,f,facilityArt);
+    }else{
+      paintFacilityArt(ctx,f,facilityArt);
+      if(f===photographer && facilityArt.has(f)) paintCameraFlash(ctx,now,reducedMotion.matches);
+    }
   }
   if(finishStand.x+320>left && finishStand.x-320<left+width &&
      finishStand.y+110>top && finishStand.y-110<top+height){
     paintFinishStand(ctx,grandstand,finishStandIdle,crowdMotion(finishCrowd,now,reducedMotion.matches));
   }
   for(const bot of opponents){
-    if(bot.x+30>left && bot.x-30<left+width && bot.y+30>top && bot.y-30<top+height) paintCar(ctx,bot);
+    if(!isRetired(bot) && bot.x+30>left && bot.x-30<left+width && bot.y+30>top && bot.y-30<top+height) paintCar(ctx,bot);
   }
-  paintCar(ctx,driver);
+  if(!isRetired(driver)) paintCar(ctx,driver);
   if(objectShadows){
-    const objects=scenery.filter(([,x,y,s])=>x+s>left && y+s>top && x-s<left+width && y-s<top+height);
+    const objects=activePark.filter(([,x,y,s])=>x+s>left && y+s>top && x-s<left+width && y-s<top+height);
     paintObjects(ctx,gardenArt,objectShadows,objects,reducedMotion.matches?0:now/1000,houseArt,target);
   }
   onlineRace.drawLabels(ctx,driver,opponents,left,top,width,height);
-  drawMap(target,watchIndex<0?opponents:[driver,...opponents.filter(view=>view!==target)]);
+  drawMap(target,(watchIndex<0?opponents:[driver,...opponents.filter(view=>view!==target)]).filter(view=>!isRetired(view)));
 }
-function frame(t){let dt=Math.min((t-last)/1000||0,.04);last=t;if(ready)update(dt,t);draw(t,dt);requestAnimationFrame(frame)}
+function crowdSound(id,position,state,now){
+  const {age,release}=crowdMotion(state,now,false);
+  const activity=age<0?0:easeCrowd(age/.62)*(1-easeCrowd(release/1.7));
+  return {id,x:position.x,y:position.y,activity:setup.hidden?activity:0};
+}
+
+function showStartSignal(now,launchAt){
+  if(isRetired(car)) launchAt=0;
+  const age=now-launchAt;
+  const phase=!launchAt || !setup.hidden || age>=2000?'off':
+    age< -2000?'waiting':age< -1000?'red':age<0?'amber':'green';
+  if(startSignal.dataset.phase===phase)return;
+  startSignal.dataset.phase=phase;
+  startStatus.textContent=phase==='off'?'':translate(phase);
+  const cueAge={red:age+2000,amber:age+1000,green:age}[phase];
+  if(cueAge>=0 && cueAge<160) withRaceAudio(()=>raceAudio.signal(phase));
+}
+
+function frame(realTime){
+  const delta=last ? realTime-last : 0;
+  last=realTime;
+  const t=onlineRace.active()?realTime:(pauseStarted??realTime)-pausedTime;
+  const dt=Math.min(delta/1000,.04);
+  requestAnimationFrame(frame);
+  try{
+    if(!pendingRacePresentation && pauseStarted===null){
+      update(dt,t);
+      showStartSignal(t,onlineRace.launchTime() || start);
+    }
+    draw(t,pauseStarted===null?dt:0);
+    const focus=watching??car;
+    if(focus) updateSpeedometer(Math.hypot(focus.vx,focus.vy)*kilometersPerHour,dt);
+    if(pendingRacePresentation){
+      onlineRace.reportStart(pendingRacePresentation,true);
+      pendingRacePresentation=null;
+    }
+    lastFrameError='';
+  }catch(error){
+    const message=String(error);
+    if(message!==lastFrameError) console.error('Falha em um quadro da corrida',error);
+    lastFrameError=message;
+    if(pendingRacePresentation){
+      onlineRace.reportStart(pendingRacePresentation,false);
+      pauseForMenu();
+    }
+  }
+}
 addEventListener('keydown',event=>{
-  if(!setup.hidden || event.ctrlKey || event.metaKey || event.altKey) return;
+  if(!ready || (!soloActive && !onlineRace.active()) || !setup.hidden || event.ctrlKey || event.metaKey || event.altKey) return;
   const key=event.key.toLowerCase();
+  if(key==='escape'){
+    event.preventDefault();
+    if(!event.repeat){
+      if(raceMenu.open) dismissRaceMenu();
+      else openRaceMenu();
+    }
+    return;
+  }
+  if(raceMenu.open) return;
   if(watching && (key==='a'||key==='d')){
     event.preventDefault();
     if(!event.repeat) cycleSpectator(key==='d'?1:-1);
@@ -397,30 +689,77 @@ addEventListener('keydown',event=>{
   }
   if(done) return;
   if(['w','a','s','d','shift'].includes(key)){
+    if(key==='w' && !start) launchRequested=true;
     keys[key]=true;
     event.preventDefault();
   }
 });
 addEventListener('keyup',event=>{keys[event.key.toLowerCase()]=false});
 addEventListener('blur',clearKeys);
-document.querySelector('#reset').onclick=reset;
-document.querySelector('#again').onclick=reset;
-levelButton.onclick=document.querySelector('#result-options').onclick=()=>{
+function restartSolo(){
+  reset();
+  canvas.focus({preventScroll:true});
+}
+document.querySelector('#again').onclick=restartSolo;
+document.querySelector('#result-options').onclick=()=>{
+  if(externalMenu){
+    pauseForMenu();
+    onlineRace.showMenu('quick');
+    return;
+  }
   clearKeys();
   setup.hidden=false;
   setupForm.querySelector('input:checked').focus();
 };
 setupForm.onsubmit=event=>{
   event.preventDefault();
-  difficulty=setupForm.elements.difficulty.value;
-  levelButton.textContent='Nível · '+difficultyNames[difficulty];
-  setup.hidden=true;
-  reset();
-  canvas.focus();
+  if(!ready || !OverdriveCars.isCarModel(setupCar.value)) return;
+  beginSolo(setupForm.elements.difficulty.value,botCount,setupCar.value);
 };
-reset();
-setupForm.querySelector('input:checked').focus();
-requestAnimationFrame(frame);
+async function prepareGame(){
+  let completed=0;
+  const advance=job=>job.then(()=>{
+    preparationProgress=++completed/3;
+    loadingScreen.querySelector(".loading-track").setAttribute("aria-valuenow",Math.round(preparationProgress*100));
+    loadingScreen.style.setProperty('--loading-progress',preparationProgress);
+    if(externalMenu) onlineRace.reportLoading(preparationProgress);
+  });
+  try{
+    const interfaceReady=Promise.allSettled([
+      loadingScreen.querySelector('.loading-logo').decode(),
+      ...[600,700,800].map(weight=>document.fonts.load(weight+' 18px "Barlow Condensed"')),
+      document.fonts.load('700 16px "DM Sans"','Difícil'),
+    ]);
+    await Promise.all([advance(prepareScenery()),advance(raceAudio.preload()),
+      advance(Promise.all([interfaceReady,prepareCarArt()]))]);
+    reset();
+    draw(performance.now(),0);
+    if(!externalMenu){
+      loadingScreen.classList.add('fade-out');
+      await Promise.allSettled(loadingScreen.getAnimations().map(animation=>animation.finished));
+    }
+    loadingScreen.hidden=true;
+    gameApp.inert=false;
+    gameApp.removeAttribute('aria-busy');
+    ready=true;
+    if(!setup.hidden) setupForm.querySelector('input:checked').focus();
+    requestAnimationFrame(frame);
+    return true;
+  }catch(error){
+    console.error('Falha ao preparar a corrida',error);
+    loadingScreen.dataset.failed='';
+    loadingStatus.textContent=translate('loadFailed');
+    loadingStatus.hidden=false;
+    const retry=document.querySelector('#loading-retry');
+    retry.hidden=false;
+    retry.onclick=()=>location.reload();
+    return false;
+  }
+}
+raceAudio.language=language;
+raceAudio.updateButton();
+updateRaceLanguage();
+const gameReady=prepareGame();
 </script>
 </body>
 </html>

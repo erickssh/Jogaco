@@ -28,7 +28,7 @@ export const GAMES: Game[] = [
   {
     slug: "volta-rapida",
     title: "Volta Rápida",
-    description: "Dispute três voltas no Circuito do Bosque contra a máquina ou com amigos.",
+    description: "Dispute três voltas no circuito Whispering Woods contra a máquina ou com amigos.",
     howTo: "Use WASD para dirigir e Shift para derrapar. Crie uma sala e compartilhe o convite para jogar online.",
     category: "Arcade",
     emoji: "🏎️",

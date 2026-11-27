@@ -1,7 +1,10 @@
 const standings=document.querySelector('#standings');
 const spectateButton=document.querySelector('#spectate');
 const spectatorBar=document.querySelector('#spectator-bar');
-const timeLabel=document.querySelector('#time-label');
+const resultsRows=document.querySelector('#results-rows');
+const resultsCount=document.querySelector('#results-count');
+const resultsScroll=document.querySelector('.results-scroll');
+const resultRowsByDriver=new Map();
 const lapSplits=new WeakMap();
 let watching=null, raceClosed=false, nextIntervalsAt=0, standingsSignature='';
 
@@ -13,17 +16,19 @@ function resetPresentation(){
   standings.hidden=true;
   spectatorBar.hidden=true;
   spectateButton.hidden=true;
-  timeLabel.textContent='Volta atual';
+  resultsRows.replaceChildren();
+  resultRowsByDriver.clear();
+  resultsCount.textContent='';
 }
 
 function clockTime(seconds){
   const ticks=Math.max(0,Math.round(seconds*100));
   const pad=value=>String(value).padStart(2,'0');
-  return pad(Math.floor(ticks/6000))+':'+pad(Math.floor(ticks/100)%60)+','+pad(ticks%100);
+  return pad(Math.floor(ticks/6000))+':'+pad(Math.floor(ticks/100)%60)+(language==='en'?'.':',')+pad(ticks%100);
 }
 
 function driverName(driver){
-  return driver.name || (driver===car?'Você':'Bot '+driver.id);
+  return driver.name || (driver===car?translate('you'):translate('opponent'));
 }
 
 function lapOnDisplay(driver,now){
@@ -45,15 +50,16 @@ function collectIntervals(drivers,clock){
 function renderStandings(order,now){
   const rows=order.map((driver,index)=>{
     let timing;
-    const split=lapOnDisplay(driver,now);
-    if(split) timing='Volta '+Math.floor(driver.checkpoint/gateCount)+' · '+clockTime(driver.lastLapTime);
+    const split=!isRetired(driver) && lapOnDisplay(driver,now);
+    if(isRetired(driver)) timing=translate('retired');
+    else if(split) timing=translate('lap')+' '+Math.floor(driver.checkpoint/gateCount)+' · '+clockTime(driver.lastLapTime);
     else if(Number.isFinite(driver.finishedAt)) timing=clockTime(driver.finishedAt);
-    else if(raceClosed) timing='Não concluiu';
-    else if(!index) timing='Líder';
-    else timing=driver.gap==null || driver.gapTo!==order[index-1].id?'—':'+'+driver.gap.toFixed(2).replace('.',',')+' s';
+    else if(raceClosed) timing=translate('dnf');
+    else if(!index) timing=translate('leader');
+    else timing=driver.gap==null || driver.gapTo!==order[index-1].id?'—':'+'+driver.gap.toFixed(2).replace('.',language==='en'?'.':',')+' s';
     return {driver,timing,split};
   });
-  const signature=JSON.stringify(rows.map(({driver,timing})=>[driver.id,timing,driver===watching]));
+  const signature=JSON.stringify(rows.map(({driver,timing})=>[driver.id,driver.name,timing,driver===watching]));
   if(signature===standingsSignature) return;
   standingsSignature=signature;
   standings.querySelector('ol').replaceChildren(...rows.map(({driver,timing,split},index)=>{
@@ -62,7 +68,7 @@ function renderStandings(order,now){
     dot.style.backgroundColor=(driver.paint??playerPaint)[2];
     const label=document.createElement('span');
     label.className='driver';
-    label.textContent=(index+1)+'º '+driverName(driver)+(driver===car&&driver.name?' (você)':'');
+    label.textContent=translate('ordinal',{n:index+1})+' '+driverName(driver)+(driver===car&&driver.name?translate('youTag'):'');
     if(driver===car) row.setAttribute('aria-current','true');
     if(driver===watching) row.classList.add('watching');
     const time=document.createElement('span');
@@ -75,7 +81,7 @@ function renderStandings(order,now){
 }
 
 function availableToWatch(order){
-  return raceClosed?[]:order.filter(driver=>driver!==car && !Number.isFinite(driver.finishedAt));
+  return raceClosed?[]:order.filter(driver=>driver!==car && !raceTerminal(driver));
 }
 
 function watchDriver(driver){
@@ -102,12 +108,37 @@ function setHudText(element,text){
   if(element.textContent!==text) element.textContent=text;
 }
 
-function updateRaceHud(now,clock=elapsed){
+function renderRaceResults(order){
+  resultsScroll.classList.toggle('has-more',order.length>8);
+  let completed=0,rowIndex=0;
+  for(const [index,driver] of order.entries()){
+    const finished=Number.isFinite(driver.finishedAt);
+    if(finished) completed++;
+    if(!finished && !raceClosed && !isRetired(driver)) continue;
+    let row=resultRowsByDriver.get(driver.id);
+    if(!row){
+      row=document.createElement('tr');
+      row.className=finished?'arrival':'unfinished';
+      if(driver===car) row.setAttribute('aria-current','true');
+      for(let i=0;i<3;i++) row.insertCell();
+      resultRowsByDriver.set(driver.id,row);
+    }
+    setHudText(row.cells[0],translate('ordinal',{n:index+1}));
+    setHudText(row.cells[1],driverName(driver)+(driver===car && driver.name?translate('youTag'):''));
+    setHudText(row.cells[2],finished?clockTime(driver.finishedAt):translate(isRetired(driver)?'retired':'dnf'));
+    if(resultsRows.children[rowIndex]!==row) resultsRows.insertBefore(row,resultsRows.children[rowIndex]??null);
+    rowIndex++;
+  }
+  setHudText(resultsCount,translate('finishedCount',{count:completed,total:order.length}));
+}
+
+function updateRaceHud(now){
   cueRaceCrowds(now);
   paintSkidMarks(car);
   bots.forEach(paintSkidMarks);
   const order=raceOrder([car,...bots]);
-  const placed=Number.isFinite(car.finishedAt);
+  if(!isRetired(order[0])) cuePhotographer(order[0],now);
+  const placed=raceTerminal(car);
   if(placed || raceClosed){
     if(!done){
       done=true;
@@ -117,19 +148,12 @@ function updateRaceHud(now,clock=elapsed){
     const available=availableToWatch(order);
     spectateButton.hidden=available.length===0;
     if(watching && !available.includes(watching)) watchDriver(available[0]??null);
-    setHudText(document.querySelector('#result'),placed?
-      (order.indexOf(car)+1)+'º lugar de '+order.length+' · '+clockTime(car.finishedAt):'Tempo limite atingido.');
+    renderRaceResults(order);
   }
   const focus=watching??car;
   setHudText(positionEl,(order.indexOf(focus)+1)+' / '+order.length);
-  setHudText(speedEl,String(Math.round(Math.hypot(focus.vx,focus.vy)*kilometersPerHour)));
-  raceNotice.hidden=true;
   const completed=Math.floor(focus.checkpoint/gateCount);
-  setHudText(lapEl,Math.min(raceLaps,completed+1)+' / '+raceLaps);
-  const finished=Number.isFinite(focus.finishedAt);
-  const split=lapOnDisplay(focus,now);
-  setHudText(timeLabel,finished?'Tempo final':split?'Volta '+completed:'Volta atual');
-  setHudText(timeEl,clockTime(finished?focus.finishedAt:split?focus.lastLapTime:clock-focus.lapStartedAt));
+  setHudText(lapEl,Math.min(raceLaps,completed)+' / '+raceLaps);
   renderStandings(order,now);
 }
 

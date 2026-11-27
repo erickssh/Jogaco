@@ -10,17 +10,112 @@ function raceFacility(kind, distance, setback, width, depth, tile, artFront, art
 }
 
 const terraceDistance=3775;
+const photographerDistance=1030;
 const raceFacilities = [
   raceFacility('pits',7160,301,337,215,0,-90,270),
-  raceFacility('broadcast',1030,323,172,160,3,180,158),
+  raceFacility('broadcast',photographerDistance,323,172,160,3,180,158),
   raceFacility('marshal',2125,224,100,66,null,90,0),
   raceFacility('terrace',terraceDistance,282,242,178,null,90,0),
   raceFacility('rescue',4515,292,225,198,2,0,193),
   raceFacility('marshal',6150,225,100,66,null,90,0)
 ];
 const terrace = raceFacilities.find(facility=>facility.kind==='terrace');
+const photographer=raceFacilities.find(facility=>facility.kind==='broadcast');
 const terraceGate = terrace.gate;
 const terraceApproach=TRACK.pointAt(startDistance+terraceDistance-350);
+
+// The broadcast sprite faces left before rotation. Anchor the flash at the
+// centre of the lens hood's front rim.
+const lensX=-.488*photographer.artSize,lensY=-.246*photographer.artSize;
+const lensCos=Math.cos(photographer.artAngle),lensSin=Math.sin(photographer.artAngle);
+const photoLens={
+  x:photographer.x+lensX*lensCos-lensY*lensSin,
+  y:photographer.y+lensX*lensSin+lensY*lensCos
+};
+const photoGate=photographer.gate;
+const photoDistance=photographerDistance+(photoLens.x-photoGate.x)*photoGate.tx+
+  (photoLens.y-photoGate.y)*photoGate.ty-10;
+const photo={previous:-Infinity,lap:-1,at:-Infinity,burst:-Infinity};
+
+function resetPhotographer(){
+  photo.previous=-Infinity;
+  photo.lap=-1;
+  photo.at=-Infinity;
+  photo.burst=-Infinity;
+}
+
+function cuePhotographer(leader,now){
+  if(!leader || Number.isFinite(leader.finishedAt)) return;
+  const progress=leader.standing;
+  const lap=Math.floor((progress-photoDistance)/TRACK.length);
+  const marker=photoDistance+lap*TRACK.length;
+  if(lap>=0 && lap<raceLaps && lap>photo.lap &&
+     photo.previous<marker && progress-marker<72){
+    photo.lap=lap;
+    photo.at=now;
+    photo.burst=now;
+  }
+  photo.previous=progress;
+}
+
+const cameraShotInterval=140;
+const cameraFlashFraction=.58;
+
+function cameraShotAt(now){
+  const age=now-photo.burst;
+  if(age<0 || age>=cameraShotInterval*3) return -1;
+  const shot=Math.floor(age/cameraShotInterval);
+  return age/cameraShotInterval-shot<cameraFlashFraction?shot:-1;
+}
+
+function paintCameraFlash(ctx,now,reduced){
+  const shot=cameraShotAt(now);
+  if(shot<0) return;
+  const progress=(now-photo.burst)/cameraShotInterval-shot;
+  const fade=(1-progress/cameraFlashFraction)**1.25;
+  const {x,y}=photoLens;
+  const strength=reduced?.82:1;
+  const reach=(reduced?82:148)*(1-progress*.18);
+  const radius=(reduced?38:70)*(1-progress*.24);
+  ctx.save();
+  ctx.globalAlpha=fade*strength;
+  ctx.translate(x,y);
+  ctx.rotate(photographer.artAngle+Math.PI);
+  const beam=ctx.createLinearGradient(0,0,reach,0);
+  beam.addColorStop(0,'#fffbe8e8');
+  beam.addColorStop(.16,'#fff0c6b8');
+  beam.addColorStop(.52,'#ffdda05c');
+  beam.addColorStop(1,'#ffcf8600');
+  ctx.fillStyle=beam;
+  ctx.beginPath();
+  ctx.moveTo(0,-5);
+  ctx.quadraticCurveTo(reach*.43,-radius*.65,reach,-radius*.55);
+  ctx.quadraticCurveTo(reach*1.08,0,reach,radius*.55);
+  ctx.quadraticCurveTo(reach*.43,radius*.65,0,5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.translate(reach*.12,0);
+  const glow=ctx.createRadialGradient(0,0,1,0,0,radius);
+  glow.addColorStop(0,'#fff');
+  glow.addColorStop(.2,'#fffef3');
+  glow.addColorStop(.62,'#fff0c4');
+  glow.addColorStop(1,'transparent');
+  ctx.fillStyle=glow;
+  ctx.fillRect(-radius,-radius,radius*2,radius*2);
+  ctx.translate(-reach*.12,0);
+  if(!reduced){
+    ctx.fillStyle='#fffef5';
+    ctx.shadowColor='#fff3c8';
+    ctx.shadowBlur=22;
+    ctx.shadowOffsetX=1.5;
+    ctx.beginPath();
+    ctx.moveTo(0,-34);ctx.lineTo(5,-6);ctx.lineTo(34,0);ctx.lineTo(5,6);
+    ctx.lineTo(0,34);ctx.lineTo(-5,6);ctx.lineTo(-34,0);ctx.lineTo(-5,-6);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
 
 // Service vehicles reach the two paved aprons through gaps beside the pit wall.
 function serviceRoutes(f) {
@@ -136,6 +231,72 @@ function paintFacilityGround(ctx,f) {
   ctx.restore();
 }
 
+// The atlas merges the parked vehicles into the buildings. Separate them
+// at the roof and tent edges so each can scale around its parking position.
+// Coordinates are local to the original 512px atlas tiles.
+const facilityVehicles = {
+  pits: [
+    {scale:.45, anchor:[164,186], outline:[
+      [99,54],[225,54],[225,144],[214,144],[214,184],[207,186],
+      [117,186],[113,183],[113,144],[107,139],[103,134],[102,127],[99,123],
+    ]},
+    {scale:.45, anchor:[370,186], outline:[
+      [303,54],[438,54],[437,124],[434,130],[431,135],[428,140],
+      [423,145],[421,150],[421,184],[409,186],[325,186],[320,183],[316,145],[303,145],
+    ]},
+  ],
+  rescue: [
+    {scale:.32, anchor:[317,249], outline:[
+      [0,0],[512,0],[512,271],[344,271],[330,268],[327,256],[323,250],
+      [318,247],[312,247],[306,250],[302,253],[96,253],[88,250],[82,247],
+      [75,246],[70,250],[66,258],[65,270],[0,270],
+    ]},
+  ],
+};
+
+function paintFacilityTile(ctx, f, atlas, tile, density) {
+  const sourceX = (f.tile % 2) * tile;
+  const sourceY = Math.floor(f.tile / 2) * tile;
+  const paintTile = brush => brush.drawImage(atlas,sourceX,sourceY,tile,tile,0,0,tile,tile);
+  const vehicles = facilityVehicles[f.kind];
+  const size = f.artSize;
+  if (!vehicles) {
+    ctx.drawImage(atlas,sourceX,sourceY,tile,tile,-size/2,-size/2,size,size);
+    return;
+  }
+
+  const building = shadowCanvas(tile);
+  const base = building.getContext('2d');
+  paintTile(base);
+  base.globalCompositeOperation = 'destination-out';
+  for (const {outline,anchor,scale} of vehicles) {
+    const cut = new Path2D();
+    for (const [index,[x,y]] of outline.entries()) {
+      const atX = x * tile / 512;
+      const atY = y * tile / 512;
+      if (index === 0) cut.moveTo(atX,atY);
+      else cut.lineTo(atX,atY);
+    }
+    cut.closePath();
+    base.fill(cut);
+
+    const vehicle = shadowCanvas(tile);
+    const brush = vehicle.getContext('2d');
+    brush.clip(cut);
+    paintTile(brush);
+    const [x,y] = anchor.map(value => (value / 512) * size);
+    ctx.save();
+    ctx.shadowOffsetX = 6 * density * scale;
+    ctx.shadowOffsetY = 8 * density * scale;
+    ctx.shadowBlur = 3 * density * scale;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(vehicle,(1-scale)*x-size/2,(1-scale)*y-size/2,size*scale,size*scale);
+    ctx.restore();
+  }
+  // The original roof lip and tent stay in front of the vehicles.
+  ctx.drawImage(building,-size/2,-size/2,size,size);
+}
+
 // Cache each rotated building and its soft shadow at the original tile density.
 function prepareFacilityArt(atlas) {
   const sprites=new Map();
@@ -154,8 +315,7 @@ function prepareFacilityArt(atlas) {
     ctx.shadowOffsetY=8*density;
     ctx.shadowBlur=3*density;
     ctx.shadowColor='rgba(36,52,36,.54)';
-    ctx.drawImage(atlas,(f.tile%2)*tile,Math.floor(f.tile/2)*tile,tile,tile,
-      -f.artSize/2,-f.artSize/2,f.artSize,f.artSize);
+    paintFacilityTile(ctx,f,atlas,tile,density);
     sprites.set(f,{layer,size:side/density});
   }
   return sprites;

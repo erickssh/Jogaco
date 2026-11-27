@@ -61,6 +61,7 @@ function paintTerraceFan(ctx,stand,row,column,x,y,motion) {
   const settle=1.05+(row+column)%5*.095;
   const effort=easeCrowd(age/.38)*(1-easeCrowd((motion.release-delay*.45)/settle));
   const pulse=effort>0 ? Math.cos(age*(fan.claps?12:8)+(row*8+column)*.84) : 0;
+  const bounce=Math.sin(age*(7.2+(column%4)*.45)+column*1.7+row*.8);
   const pairPhase=Math.floor(column/2)*2.73+row*1.57;
   const chat=Math.pow(Math.max(0,Math.sin(motion.clock*.89+pairPhase)),4)*(1-effort);
   const nod=chat*Math.sin(motion.clock*3.1+column*.6);
@@ -68,8 +69,8 @@ function paintTerraceFan(ctx,stand,row,column,x,y,motion) {
   ctx.save();
   ctx.translate(x,y);
   ctx.scale(.68,.68);
-  ctx.translate(facing*chat*.95,-effort*(2.5+1.45*pulse)+nod*.7);
-  ctx.rotate(facing*chat*.11+effort*.09*Math.sin(effort>0 ? age*8+column : 0));
+  ctx.translate(facing*chat*.95,-effort*(3.3+2.1*bounce)+nod*.7);
+  ctx.rotate(facing*chat*.11+effort*.14*Math.sin(effort>0 ? age*(7.5+column%3*.5)+column : 0));
 
   const shoulders=12;
   roundedShape(ctx,0,5,shoulders,8,'#503b30');
@@ -92,10 +93,8 @@ function paintTerraceFan(ctx,stand,row,column,x,y,motion) {
   ctx.restore();
 }
 
-function paintNorthTerrace(ctx,motion,stand) {
+function drawNorthTerrace(ctx,motion,stand) {
   ctx.save();
-  ctx.translate(terrace.x,terrace.y);
-  ctx.rotate(terrace.angle);
 
   siteRect(ctx,-100,-76,204,123,5,'#8e7957');
   siteRect(ctx,-104,-80,204,123,5,'#354d43');
@@ -111,8 +110,8 @@ function paintNorthTerrace(ctx,motion,stand) {
     siteRect(ctx,-95,y+30,186,3,1,'#7d5b39');
 
     if(stand){
-      for(let column=0;column<8;column++){
-        paintTerraceFan(ctx,stand,row,column,(column-3.5)*22-2+(row%2?2:-2),-52+row*36,motion);
+      for(let column=0;column<10;column++){
+        paintTerraceFan(ctx,stand,row,column,(column-4.5)*18.5-2+(row%2?1:-1),-52+row*36,motion);
       }
     }
   }
@@ -123,8 +122,35 @@ function paintNorthTerrace(ctx,motion,stand) {
   ctx.restore();
 }
 
+let northTerraceLayer;
+function paintNorthTerrace(ctx,motion,stand) {
+  if(!northTerraceLayer){
+    const canvas=document.createElement('canvas');
+    canvas.width=440;
+    canvas.height=260;
+    northTerraceLayer={canvas,clock:-1,age:null,stand:null};
+  }
+  const layer=northTerraceLayer;
+  const tick=Math.floor(motion.clock*(motion.age<0?18:36));
+  if(layer.clock!==tick || layer.stand!==stand || (motion.clock===0 && layer.age!==motion.age)){
+    const layerCtx=layer.canvas.getContext('2d');
+    layerCtx.resetTransform();
+    layerCtx.clearRect(0,0,layer.canvas.width,layer.canvas.height);
+    layerCtx.setTransform(2,0,0,2,220,170);
+    drawNorthTerrace(layerCtx,motion,stand);
+    layer.clock=tick;
+    layer.age=motion.age;
+    layer.stand=stand;
+  }
+  ctx.save();
+  ctx.translate(terrace.x,terrace.y);
+  ctx.rotate(terrace.angle);
+  ctx.drawImage(layer.canvas,-110,-85,220,130);
+  ctx.restore();
+}
+
 // Three seating blocks with two aisles, all facing the finish straight.
-const finishStand={x:grid.x,y:grid.y-292,width:594,depth:181,rows:5,sections:3,seats:8};
+const finishStand={x:grid.x,y:grid.y-292,width:594,depth:181,rows:5,sections:3,seats:10};
 
 function insideFinishStand(x,y,margin) {
   return Math.abs(x-finishStand.x)<finishStand.width/2+margin &&
@@ -161,7 +187,7 @@ function paintFinishFans(ctx,motion,stand) {
   for(let row=0;row<finishStand.rows;row++){
     for(let section=0;section<finishStand.sections;section++){
       for(let seat=0;seat<finishStand.seats;seat++){
-        const x=(section-1)*194+(seat-3.5)*21+(row%2?2:-2);
+        const x=(section-1)*194+(seat-4.5)*17.5+(row%2?1:-1);
         const y=-finishStand.depth/2+24+row*32;
         paintTerraceFan(ctx,stand,row,seat+section*finishStand.seats,x,y,motion);
       }

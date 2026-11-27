@@ -15,31 +15,45 @@ function paintTrackBarriers(ctx){
   ctx.lineCap='round';
   ctx.lineJoin='round';
   for(const points of trackBarriers.paths){
-    ctx.beginPath();
-    ctx.moveTo(points[0].x,points[0].y);
-    for(const p of points.slice(1)) ctx.lineTo(p.x,p.y);
-    ctx.closePath();
-    ctx.strokeStyle='#213c27';
-    ctx.lineWidth=10;
-    ctx.stroke();
-    ctx.strokeStyle='#9eaa9b';
+    const wall=new Path2D();
+    wall.moveTo(points[0].x,points[0].y);
+    for(const p of points.slice(1)) wall.lineTo(p.x,p.y);
+    castShadow(ctx,5,shade=>{
+      shade.strokeStyle=SUN_SHADOW.color;
+      shade.lineWidth=trackWallWidth;
+      shade.stroke(wall);
+    });
+    ctx.strokeStyle='#424941';
+    ctx.lineWidth=trackWallWidth;
+    ctx.stroke(wall);
+    ctx.strokeStyle='#a6aaa0';
     ctx.lineWidth=7;
-    ctx.stroke();
-    ctx.strokeStyle='#e2ded1';
+    ctx.stroke(wall);
+    ctx.save();
+    ctx.translate(-1,-1);
+    ctx.strokeStyle='#dbd9c8';
     ctx.lineWidth=3;
-    ctx.stroke();
-    ctx.fillStyle='#596354';
-    let untilPost=0;
-    for(let i=0;i<points.length;i++){
-      const a=points[i],b=points[(i+1)%points.length];
-      const length=Math.hypot(b.x-a.x,b.y-a.y);
-      while(untilPost<length){
-        const t=untilPost/length;
-        ctx.fillRect(a.x+t*(b.x-a.x)-3,a.y+t*(b.y-a.y)-4,6,8);
-        untilPost+=40;
+    ctx.stroke(wall);
+    ctx.restore();
+
+    // Small joints in the concrete caps, spaced by distance along the wall.
+    let untilJoint=18;
+    ctx.strokeStyle='#73796e';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i];
+      const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+      const nx=-dy/length,ny=dx/length;
+      while(untilJoint<length){
+        const t=untilJoint/length,x=a.x+t*dx,y=a.y+t*dy;
+        ctx.moveTo(x+nx*3,y+ny*3);
+        ctx.lineTo(x-nx*3,y-ny*3);
+        untilJoint+=24;
       }
-      untilPost-=length;
+      untilJoint-=length;
     }
+    ctx.stroke();
   }
   ctx.restore();
 }
@@ -159,80 +173,45 @@ function carView(car,decay){
   car.viewOffsetX=dx*decay;
   car.viewOffsetY=dy*decay;
   car.viewOffsetAngle=angle*decay;
-  return {x:car.x+dx,y:car.y+dy,a:car.a+angle,paint:car.paint,name:car.name,lane:car.lane};
+  return {x:car.x+dx,y:car.y+dy,a:car.a+angle,paint:car.paint,name:car.name,lane:car.lane,retiredAt:car.retiredAt,carModel:car.carModel};
+}
+
+const carArt = new Map();
+
+async function prepareCarArt() {
+  await Promise.all(OverdriveCars.carModels.map(async model => {
+    const image = new Image();
+    image.src = OverdriveCars.imageForModel(model.id);
+    await image.decode();
+
+    // Keep each silhouette within the footprint shared by all race cars.
+    const scale = Math.min(42 / image.naturalHeight, 27 / image.naturalWidth);
+    const shadow = document.createElement('canvas');
+    shadow.width = image.naturalWidth;
+    shadow.height = image.naturalHeight;
+    const brush = shadow.getContext('2d');
+    brush.drawImage(image,0,0);
+    brush.globalCompositeOperation = 'source-in';
+    brush.fillStyle = SUN_SHADOW.color;
+    brush.fillRect(0,0,shadow.width,shadow.height);
+    carArt.set(model.id,{image,shadow,width:shadow.width*scale,length:shadow.height*scale});
+  }));
 }
 
 function paintCar(ctx, car) {
-  const [shade,bright,highlight,trim,stripe]=car.paint??playerPaint;
-  const body=new Path2D();
-  body.moveTo(-19,-7);
-  body.quadraticCurveTo(-17,-11,-11,-11);
-  body.lineTo(10,-10);
-  body.quadraticCurveTo(20,-9,21,-5);
-  body.lineTo(21,5);
-  body.quadraticCurveTo(20,9,10,10);
-  body.lineTo(-11,11);
-  body.quadraticCurveTo(-17,11,-19,7);
-  body.closePath();
-  castShadow(ctx, 6, (shade) => {
-    shade.translate(car.x, car.y);
-    shade.rotate(car.a);
-    shade.fill(body);
-  }, .52);
+  const art = carArt.get(car.carModel) ?? carArt.get(OverdriveCars.defaultModel);
+  if (!art) return;
+  const {image,shadow,width,length} = art;
+  const angle = car.a + Math.PI / 2; // The art faces up; physics uses +x as forward.
+  castShadow(ctx,6,shade=>{
+    shade.translate(car.x,car.y);
+    shade.rotate(angle);
+    shade.drawImage(shadow,-width/2,-length/2,width,length);
+  },.52);
 
   ctx.save();
-  ctx.translate(car.x, car.y);
-  ctx.rotate(car.a);
-  ctx.fillStyle='#10171d';
-  for(const x of [-14,9]){
-    for(const y of [-12,8]){
-      ctx.beginPath();
-      ctx.roundRect(x,y,7,4,1.4);
-      ctx.fill();
-    }
-  }
-
-  const paint=ctx.createLinearGradient(0,-12,0,12);
-  paint.addColorStop(0,shade);
-  paint.addColorStop(.25,bright);
-  paint.addColorStop(.5,highlight);
-  paint.addColorStop(.75,bright);
-  paint.addColorStop(1,shade);
-  ctx.fillStyle=paint;
-  ctx.fill(body);
-  ctx.strokeStyle=trim;
-  ctx.lineWidth=.85;
-  ctx.stroke(body);
-
-  ctx.fillStyle=stripe;
-  ctx.fillRect(-15,-2.2,35,4.4);
-  ctx.fillStyle='#242f3b';
-  ctx.beginPath();
-  ctx.moveTo(-10,-5);
-  ctx.quadraticCurveTo(-1,-8,6,-6);
-  ctx.lineTo(9,-4.5);
-  ctx.lineTo(9,4.5);
-  ctx.lineTo(6,6);
-  ctx.quadraticCurveTo(-1,8,-10,5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle='#506d79';
-  ctx.fillRect(4,-4.5,3.5,9);
-  ctx.fillRect(-9,-4,2.5,8);
-  ctx.fillStyle=bright;
-  ctx.beginPath();
-  ctx.roundRect(-6,-4.8,9,9.6,2);
-  ctx.fill();
-  ctx.fillStyle=stripe;
-  ctx.fillRect(-5,-1.4,7,2.8);
-
-  ctx.fillStyle='#191f28';
-  ctx.fillRect(-18.5,-10,2.6,20);
-  ctx.fillStyle='#ff514b';
-  ctx.fillRect(-16,-8,2,3.2);
-  ctx.fillRect(-16,4.8,2,3.2);
-  ctx.fillStyle='#fff0bf';
-  ctx.fillRect(17,-6.2,3.2,2.3);
-  ctx.fillRect(17,3.9,3.2,2.3);
+  ctx.translate(car.x,car.y);
+  ctx.rotate(angle);
+  ctx.drawImage(image,-width/2,-length/2,width,length);
   ctx.restore();
 }

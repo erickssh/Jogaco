@@ -24,7 +24,7 @@ const samplesPerLap=Math.ceil(TRACK.length/6);
 const sampleDistance=TRACK.length/samplesPerLap;
 const raceRoute=Array.from({length:samplesPerLap},(_,i)=>TRACK.pointAt(startDistance+i*sampleDistance));
 
-const gateCount=trackBarriers.gates.length;
+const gateCount=timingGates.length;
 const gateSpacing=TRACK.length/gateCount;
 
 function routeIndex(index){
@@ -130,11 +130,42 @@ function prepareSpeedLimits(settings){
 const difficultyProfiles=Object.fromEntries(Object.entries(difficultySettings).map(([key,settings])=>
   [key,{...settings,limits:prepareSpeedLimits(settings)}]));
 
-function createOpponents(difficulty){
+const opponentNameCatalog={
+  masculine:[
+    'Jacob','Michael','Joshua','Matthew','Daniel','Christopher','Andrew','Ethan','Joseph','William',
+    'Anthony','David','Alexander','Nicholas','Ryan','Tyler','James','John','Jonathan','Noah',
+    'Brandon','Christian','Dylan','Samuel','Benjamin','Nathan','Zachary','Logan','Justin','Gabriel',
+    'Austin','Kevin','Elijah','Caleb','Robert','Thomas','Jordan','Cameron','Jack','Hunter'
+  ],
+  feminine:['Emily','Madison','Emma','Olivia','Hannah','Abigail','Isabella','Samantha','Elizabeth','Ashley']
+};
+
+function raceNameKey(name){
+  return name.trim().normalize('NFD').replace(/\p{M}/gu,'').toLocaleLowerCase('pt-BR');
+}
+
+function racePlayerNames(players){
+  const reserved=new Set(players.map(player=>raceNameKey(player.name)));
+  const used=new Set();
+  return players.map(({name})=>{
+    let display=name;
+    for(let suffix=2;used.has(raceNameKey(display));suffix++){
+      display=name+' '+suffix;
+      while(reserved.has(raceNameKey(display))) display=name+' '+(++suffix);
+    }
+    used.add(raceNameKey(display));
+    return display;
+  });
+}
+
+function createOpponents(difficulty,{count=opponentPaint.length,reservedNames=[],assignNames=true}={}){
   const profile=difficultyProfiles[difficulty];
-  return opponentPaint.map((paint,index)=>{
+  const reserved=new Set(reservedNames.map(raceNameKey));
+  const available=assignNames?Object.values(opponentNameCatalog).flat().filter(name=>!reserved.has(raceNameKey(name))):[];
+  return opponentPaint.slice(0,count).map((paint,index)=>{
     const slot=index;
-    return {...gridPosition(slot), id:index+1, paint, profile,spec:roadCar,speedLimit:profile.topSpeed,driftUntil:0,driftReady:0,stalledSince:null,reverseUntil:0,escapeDirection:1,
+    const [name]=available.splice(Math.floor(Math.random()*available.length),1);
+    return {...gridPosition(slot), id:index+1, name, paint, profile,spec:roadCar,speedLimit:profile.topSpeed,driftUntil:0,driftReady:0,stalledSince:null,reverseUntil:0,escapeDirection:1,
       pace:[1.01,.993,.962,1.023,.985,1.004,.974][index],
       reaction:(difficulty==='dificil'?.025:.10)+(index*5%7)*.019,
       laneGoal:slot%2?-gridLane:gridLane, passUntil:0, lineBias:(index-3)*1.7};
@@ -214,14 +245,14 @@ function opponentControls(bot,traffic,elapsed){
   }
 
   // Reserve the handbrake for sustained curvature near the apex.
-  if(elapsed>=bot.driftReady && !recovering && speed>158 &&
-     Math.abs(corner)>.0052 && Math.abs(deepCorner)>.0044 && corner*deepCorner>0 &&
-     Math.abs(steerError)>.09 && Math.abs(steerError)<.88 && corner*steerError>0 &&
-     Math.abs(corner)*speed>1.04){
+  if(elapsed>=bot.driftReady && !recovering && speed>145 &&
+     Math.abs(corner)>.0044 && Math.abs(deepCorner)>.0038 && corner*deepCorner>0 &&
+     Math.abs(steerError)>.075 && Math.abs(steerError)<.88 && corner*steerError>0 &&
+     Math.abs(corner)*speed>.84){
     bot.driftUntil=elapsed+profile.driftTime;
     bot.driftReady=bot.driftUntil+.12;
   }
-  const drift=elapsed<bot.driftUntil && !recovering && Math.abs(steerError)>.105;
+  const drift=elapsed<bot.driftUntil && !recovering && Math.abs(steerError)>.085;
   const trim=.38+(target-speed)/24;
   // A small overshoot is handled by easing off, without touching the brake.
   const request=target>80 && speed-target<15 ? Math.max(.06,trim) : trim;
@@ -238,18 +269,15 @@ function refreshRacePosition(car){
   car.progress=measureRaceProgress(car.x,car.y,from,to);
 }
 
-// The line spans both barriers. Count forward crossings and undo progress
-// when traversing the same line in reverse.
+// Only route and direction determine a valid crossing. Every line spans
+// the entire driveable width, including both sides of the grass runoff.
 function crossTimingLine(index,oldX,oldY,x,y,direction){
-  const gate=trackBarriers.gates[((index%gateCount)+gateCount)%gateCount];
-  const {point,right,left}=gate;
+  const {point,min,max}=timingGates[((index%gateCount)+gateCount)%gateCount];
   const before=(oldX-point.x)*point.tx+(oldY-point.y)*point.ty;
   const after=(x-point.x)*point.tx+(y-point.y)*point.ty;
   if(direction===1?before>=0 || after<0:before<0 || after>=0) return null;
   const t=before/(before-after);
   const offset=(oldX+(x-oldX)*t-point.x)*point.ty-(oldY+(y-oldY)*t-point.y)*point.tx;
-  const min=(right.x-point.x)*point.ty-(right.y-point.y)*point.tx;
-  const max=(left.x-point.x)*point.ty-(left.y-point.y)*point.tx;
   return offset>=min-1e-6 && offset<=max+1e-6?t:null;
 }
 
@@ -307,7 +335,7 @@ function recordPassage(car,time){
     last={distance,time:car.arrivedAt};
     history.push(last);
   }
-  if(last && time-last.time<.1 && !Number.isFinite(car.finishedAt)) return;
+  if(last && time-last.time<.1 && !raceTerminal(car)) return;
   if(last && distance===last.distance && history[history.length-2]?.distance===distance){
     last.time=time;
   }else history.push({distance,time});
@@ -338,7 +366,7 @@ function updateIntervals(drivers,elapsed){
     driver.gap=null;
     const ahead=sorted[index-1];
     driver.gapTo=ahead?.id??null;
-    if(!ahead || Number.isFinite(driver.finishedAt)) return;
+    if(!ahead || raceTerminal(driver)) return;
     const passed=passageAt(ahead,driver.standing,elapsed);
     const arrived=passageAt(driver,driver.standing,elapsed);
     if(passed!==null && arrived!==null) driver.gap=Math.max(0,arrived-passed);
@@ -354,6 +382,7 @@ function advanceField(car,bots,controls,dt,elapsed){
 }
 
 function advanceRacers(drivers,controlsFor,dt,elapsed){
+  drivers=drivers.filter(driver=>!isRetired(driver));
   const movement=drivers.map(driver=>({x:driver.x,y:driver.y}));
   const traffic=drivers.filter(driver=>!Number.isFinite(driver.finishedAt)).map(({id,progress,lane,vx,vy})=>({id,progress,lane,speed:Math.hypot(vx,vy)}));
   for(const driver of drivers){
@@ -368,15 +397,21 @@ function advanceRacers(drivers,controlsFor,dt,elapsed){
     for(let b=a+1;b<drivers.length;b++) carContact(drivers[a],drivers[b]);
   }
   drivers.forEach((driver,i)=>{
-    keepInsideMap(driver);
     const {x,y}=movement[i];
-    keepOutsideRails(driver,x,y);
-    keepOutsideScenery(driver,x,y);
+    resolveRaceEnvironment(driver,x,y);
     updateRacePosition(driver,x,y,elapsed,dt);
   });
 }
 
+function isRetired(driver){ return Number.isFinite(driver?.retiredAt); }
+function raceTerminal(driver){ return isRetired(driver) || Number.isFinite(driver.finishedAt); }
+function retireDriver(driver,when=elapsed){
+  if(raceTerminal(driver)) return;
+  Object.assign(driver,{retiredAt:when,vx:0,vy:0,spin:0,drifting:false,motorLoad:0,lastSkid:null,gap:null,gapTo:null});
+}
 function aheadInRace(a,b){
+  if(isRetired(a)!==isRetired(b)) return !isRetired(a);
+  if(isRetired(a)) return a.retiredAt>b.retiredAt || (a.retiredAt===b.retiredAt && a.id<b.id);
   if(a.finishedAt!==b.finishedAt) return a.finishedAt<b.finishedAt;
   return a.standing>b.standing || (a.standing===b.standing && a.id<b.id);
 }
@@ -384,7 +419,7 @@ function aheadInRace(a,b){
 function leadingProgress(car,bots){
   let leader=Number.isFinite(car.finishedAt)?-Infinity:car.standing;
   for(const bot of bots){
-    if(!Number.isFinite(bot.finishedAt)) leader=Math.max(leader,bot.standing);
+    if(!raceTerminal(bot)) leader=Math.max(leader,bot.standing);
   }
   return leader;
 }

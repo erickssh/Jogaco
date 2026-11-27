@@ -115,61 +115,104 @@ const innerEdge = -TRACK.halfWidth, outerEdge = TRACK.halfWidth;
 const firstBend = TRACK.arcs[0];
 const startDistance = Math.abs(firstBend.sweep)*firstBend.radius + mapX(97.5)-firstBend.bx;
 const grid = TRACK.pointAt(startDistance);
-// Use the same closed paths for drawing, collisions and the timing lines.
-// Every section lies in its own slice of the road. On tight bends and
-// near another leg, the bisector between centreline points limits the verge.
-function makeTrackBarriers(track,origin){
-  const desiredOffset=2*track.halfWidth;
+// Use half a road width of runoff beyond each edge. Where two legs meet
+// or the inside radius is smaller, stop at the verge's geometric limit.
+function makeCourseRunoff(track,origin){
   const gateCount=Math.ceil(track.length/36);
   const samplesPerGate=Math.max(8,Math.ceil(720/track.halfWidth));
   const count=gateCount*samplesPerGate;
   const spacing=track.length/count;
-  const samples=Array.from({length:count},(_,index)=>track.pointAt(origin+index*spacing));
-  const sides=[-1,1];
-  const paths=sides.map(side=>{
-    const widths=samples.map(p=>{
-      let reach=Infinity;
-      for(const other of samples){
-        const dx=other.x-p.x,dy=other.y-p.y;
-        const toward=(dx*p.ty-dy*p.tx)*side;
-        if(toward>1e-5) reach=Math.min(reach,(dx*dx+dy*dy)/(2*toward));
-      }
-      return Math.min(desiredOffset,reach-track.halfWidth/30);
-    });
-    // Ease in and out of narrow verges without widening any narrow section.
-    for(let k=1;k<2*count;k++){
-      const i=k%count,previous=(k-1)%count;
-      widths[i]=Math.min(widths[i],widths[previous]+spacing*1.1);
+  const samples=Array.from({length:count},(_,i)=>track.pointAt(origin+i*spacing));
+  const desired=2*track.halfWidth;
+  const clearance=track.halfWidth/30;
+  const limits=samples.map(point=>{
+    let right=desired,left=desired;
+    for(const other of samples){
+      const dx=other.x-point.x,dy=other.y-point.y;
+      const across=dx*point.ty-dy*point.tx;
+      if(Math.abs(across)<1e-5) continue;
+      const limit=(dx*dx+dy*dy)/(2*Math.abs(across))-clearance;
+      if(across>0) left=Math.min(left,limit);
+      else right=Math.min(right,limit);
     }
-    for(let k=2*count-2;k>=0;k--){
-      const i=k%count,next=(k+1)%count;
-      widths[i]=Math.min(widths[i],widths[next]+spacing*1.1);
-    }
-    // Round the shoulders of each pinch while keeping every sample inside
-    // its clearance limit. The full setback remains on open stretches.
-    const eased=widths.map((width,i)=>{
-      let sum=0;
-      for(let delta=-8;delta<=8;delta++) sum+=widths[(i+delta+count)%count];
-      return Math.min(width,sum/17);
-    });
-    return samples.map((p,i)=>({x:p.x+p.ty*side*eased[i],y:p.y-p.tx*side*eased[i]}));
+    return [right,left];
   });
 
+  const widths=[0,1].map(side=>{
+    const width=limits.map(pair=>pair[side]);
+    // Ease both shoulders of a narrow verge without moving the limit out
+    // into a neighboring leg. Wrap the passes around the start line.
+    for(const direction of [1,-1]){
+      for(let k=1;k<2*count;k++){
+        const i=direction===1?k%count:(2*count-1-k)%count;
+        const adjacent=(i-direction+count)%count;
+        width[i]=Math.min(width[i],width[adjacent]+spacing*1.1);
+      }
+    }
+    const radius=Math.max(1,Math.round(track.halfWidth*.4/spacing));
+    return width.map((max,i)=>{
+      let sum=0;
+      for(let j=-radius;j<=radius;j++) sum+=width[(i+j+count)%count];
+      return Math.min(max,sum/(2*radius+1));
+    });
+  });
+  const paths=widths.map((width,side)=>{
+    const sign=side===0?-1:1;
+    return samples.map((p,i)=>[p.x+p.ty*sign*width[i],p.y-p.tx*sign*width[i]]);
+  });
+
+  // A timing line spans both runoffs. Its ends include a small margin for
+  // collisions at the edge; tyre position never decides whether it counts.
+  const tolerance=track.halfWidth/15;
+  const gates=Array.from({length:gateCount},(_,i)=>{
+    const sample=i*samplesPerGate;
+    return {point:samples[sample],min:-widths[0][sample]-tolerance,max:widths[1][sample]+tolerance};
+  });
+  return {gates,barriers:makeTrackBarriers(paths,true)};
+}
+
+const {gates:timingGates,barriers:runoffBarriers}=makeCourseRunoff(TRACK,startDistance);
+
+// The ranges follow the two marked inside kerbs, measured from the start.
+// Take the finish at the same offset as the approach so the wall hugs the
+// apex and stays on the asphalt boundary even where the radius is small.
+const curveWalls=[[3170,4015],[5795,6640]];
+const trackWallWidth=10;
+const trackBarriers=makeTrackBarriers(curveWalls.map(([from,to])=>{
+  const steps=Math.ceil((to-from)/5);
+  const points=[];
+  for(let i=0;i<=steps;i++){
+    const p=TRACK.pointAt(startDistance+from+(to-from)*i/steps);
+    const point=[p.x+p.ty*TRACK.halfWidth,p.y-p.tx*TRACK.halfWidth];
+    if(points.length>=2){
+      const [ax,ay]=points.at(-2),[bx,by]=points.at(-1);
+      const cross=(bx-ax)*(point[1]-by)-(by-ay)*(point[0]-bx);
+      if(Math.abs(cross)<1e-6) points.pop();
+    }
+    points.push(point);
+  }
+  return points;
+}));
+
+function makeTrackBarriers(layout,closed=false){
+  const paths=layout.map(path=>path.map(([x,y])=>({x,y})));
   const cellSize=64;
   const cells=new Map();
   const cellKey=(x,y)=>x+','+y;
-  paths.forEach((points,wall)=>points.forEach((a,index)=>{
-    const b=points[(index+1)%count];
-    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
-    const segment={a,b,dx,dy,wall,nx:-sides[wall]*dy/length,ny:sides[wall]*dx/length,lengthSquared:length*length};
-    for(let x=Math.floor(Math.min(a.x,b.x)/cellSize);x<=Math.floor(Math.max(a.x,b.x)/cellSize);x++){
-      for(let y=Math.floor(Math.min(a.y,b.y)/cellSize);y<=Math.floor(Math.max(a.y,b.y)/cellSize);y++){
-        const key=cellKey(x,y);
-        if(!cells.has(key)) cells.set(key,[]);
-        cells.get(key).push(segment);
+  paths.forEach(points=>{
+    for(let index=0;index<points.length-(closed?0:1);index++){
+      const a=points[index],b=points[(index+1)%points.length];
+      const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+      const segment={a,b,dx,dy,nx:-dy/length,ny:dx/length,lengthSquared:length*length};
+      for(let x=Math.floor(Math.min(a.x,b.x)/cellSize);x<=Math.floor(Math.max(a.x,b.x)/cellSize);x++){
+        for(let y=Math.floor(Math.min(a.y,b.y)/cellSize);y<=Math.floor(Math.max(a.y,b.y)/cellSize);y++){
+          const key=cellKey(x,y);
+          if(!cells.has(key)) cells.set(key,[]);
+          cells.get(key).push(segment);
+        }
       }
     }
-  }));
+  });
 
   function nearby(x1,y1,x2,y2,margin){
     const segments=new Set();
@@ -181,15 +224,8 @@ function makeTrackBarriers(track,origin){
     }
     return segments;
   }
-
-  const gates=Array.from({length:gateCount},(_,index)=>{
-    const sample=index*samplesPerGate;
-    return {point:samples[sample], right:paths[0][sample], left:paths[1][sample]};
-  });
-  return {paths,gates,nearby};
+  return {paths,nearby};
 }
-
-const trackBarriers=makeTrackBarriers(TRACK,startDistance);
 
 function railOffset(segment,x,y){
   const {a,dx,dy,lengthSquared}=segment;

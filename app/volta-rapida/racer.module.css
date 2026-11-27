@@ -1,12 +1,98 @@
-.actions { display: flex; gap: .65rem; flex-wrap: wrap; align-items: end; margin-bottom: .8rem; }
-.lobby { background: var(--card); border-radius: 14px; padding: 1rem; margin-bottom: .75rem; }
-.lobby p { margin: .25rem 0 .7rem; }
-.lobby label { display: flex; flex-direction: column; gap: .3rem; max-width: 26rem; margin-bottom: .55rem; }
-.lobby input, .lobby select { font: inherit; color: var(--text); background: var(--card-2); border: 1px solid var(--muted); border-radius: 8px; padding: .55rem .7rem; width: 100%; }
-.lobby .checkbox { flex-direction: row; align-items: center; }
-.lobby .checkbox input { width: auto; }
-.join { margin-top: 1rem; }
-.game { width: 100%; height: min(76dvh, 850px); min-height: 440px; border: 0; border-radius: 12px; }
-.game[hidden] { display: none; }
-.notice { overflow-wrap: anywhere; }
-.results { padding-left: 1.4rem; }
+@font-face{font-family:"Overdrive DM";font-weight:400 700;src:url("/volta-rapida/fonts/dm-sans.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"Overdrive Barlow";font-weight:800;src:url("/volta-rapida/fonts/barlow-condensed-800.woff2") format("woff2");font-display:swap}
+.shell{--menu-gutter:clamp(18px,5vw,68px);--ink:#f5edd9;--soft:#d5cdb6;--brass:#f2cd86;--line:#807d624d;--panel:#1c3028;position:relative;isolation:isolate;color:var(--ink);font:16px/1.45 "Overdrive DM",system-ui,sans-serif;background:#182b23;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.standalone{position:fixed;inset:0;z-index:50;display:grid;place-items:center;overflow:auto;padding:clamp(8px,3vw,34px);background:#e8eef4}.standalone .shell{width:min(100%,1120px)}.shell.fullscreen{position:fixed;inset:0;z-index:1000;width:100%;height:100%;border:0;border-radius:0}
+:global(body):has(.standalone) :global(nextjs-portal){display:none}
+.game{display:block;width:100%;height:min(76dvh,740px);min-height:420px;border:0}
+.game[data-visible="false"]{visibility:hidden}
+.fullscreen .game{height:100%;min-height:0}
+.boot{position:absolute;inset:0;z-index:5;display:grid;place-items:center;overflow:auto;padding:15px;background:linear-gradient(105deg,#fff 8%,#f6faff 55%,#dfedf9 100%);color:#233e56}
+.boot>div{width:min(100%,460px,calc(100dvh - 85px));min-width:min(100%,210px);text-align:center}
+.boot img{display:block;width:100%;height:auto}
+.boot p{margin:6px 0;font-size:.86rem;font-weight:700}
+.boot progress{appearance:none;width:min(70%,260px);height:5px;border:0;border-radius:8px;overflow:hidden;background:#d0dfef;color:#345d89}
+.boot progress::-webkit-progress-bar{background:#d0dfef}
+.boot progress::-webkit-progress-value{background:#345d89;transition:width .18s ease}
+.boot progress::-moz-progress-bar{background:#345d89}
+.boot[data-complete="true"]{animation:boot-exit .28s ease both}
+@keyframes boot-exit{to{opacity:0;visibility:hidden}}
+@media(prefers-reduced-motion:reduce){.boot[data-complete="true"]{animation:none;visibility:hidden}}
+.menuShell{position:absolute;inset:0;display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain;isolation:isolate;color:#182b40;--ink:#182b40;--soft:#475e73;--brass:#275991;--line:#a6bcd4;background:linear-gradient(105deg,#fff 8%,#f6faff 55%,#dfedf9 100%)}
+.menuShell[hidden]{display:none}
+.fullscreen .menuHeader,.fullscreen .menuLayout{zoom:var(--fullscreen-scale,1)}
+.headerActions .musicButton{position:relative;display:grid;place-items:center;width:38px;min-width:38px;height:36px;padding:0;border:1px solid #abc1d8;border-radius:8px;background:#f9fbff;color:#193751;font:700 1.15rem "Overdrive DM",sans-serif;cursor:pointer}
+.headerActions .musicButton span{font-size:1.15rem;line-height:1;margin:0}
+.headerActions .musicButton[aria-pressed="false"]{background:#e1e8ef;color:#667789}
+.headerActions .musicButton[aria-pressed="false"]::after{content:"";position:absolute;width:21px;height:2px;background:currentColor;transform:rotate(-45deg)}
+.headerActions .musicButton:disabled{opacity:.55;cursor:default}
+.headerActions .musicButton:hover:not(:disabled){background:#e7f1fb}
+.menuLayout{width:100%;padding:clamp(12px,3vh,35px) var(--menu-gutter) clamp(18px,4vh,46px);margin:auto 0;position:relative}
+.menuHeader{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:clamp(11px,2vh,20px) var(--menu-gutter);min-height:78px;position:relative}.menuHeader img{display:block;width:clamp(76px,10vw,105px);height:auto}.headerActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.headerActions button{font-size:.8rem;min-height:36px;padding:6px 11px}.headerActions button span{margin-right:3px;font-size:1rem}
+.menuPanel{width:min(100%,480px);padding:clamp(12px,2.5vw,26px);border:1px solid #b6c9dd;border-radius:15px;background:#ffffffdf;box-shadow:0 12px 36px #345d8620;animation:menu-in .23s ease-out both}
+.menuPanel h2{overflow-wrap:anywhere;color:var(--ink);font:800 clamp(34px,5vw,57px)/.99 "Overdrive Barlow",system-ui,sans-serif;margin:0 0 18px;letter-spacing:-.015em}
+.menuPanel h2:focus{outline:none}
+.menuPanel[data-main="true"]{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;width:min(100%,395px)}.menuPanel:focus{outline:none}.mainMenu{display:grid;gap:8px}.mainMenu .choice{min-height:clamp(42px,8vh,58px)}.mainMenu .choice strong{font-size:clamp(1rem,2vw,1.18rem)}
+@keyframes menu-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.menuStack,.invite{display:grid;gap:12px;margin:0}
+.invite{padding-top:12px;border-top:1px solid var(--line)}
+.choice,.primary,.secondary,.back,.lobby button{font:inherit;font-weight:700;cursor:pointer}
+.choice{display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;width:100%;padding:14px 16px;border:1px solid #b2c7de;border-radius:11px;background:#ffffffdb;color:var(--ink);transition:background .15s,border-color .15s}
+.choice:hover{background:#e6f0fb;border-color:var(--brass)}
+.choice strong{display:block;font-size:1.1rem;color:#1a334d}
+.choice span span{display:block;margin-top:4px;font-size:.83rem;color:var(--soft);font-weight:400}
+.arrow{font-size:1.9rem;font-weight:400;color:var(--brass);line-height:1}
+.primary,.secondary{border:1px solid #abc1d8;border-radius:8px;padding:10px 14px;min-height:42px;background:#f9fbff;color:#193751}
+.primary{border-color:#254e7c;background:#254e7c;color:#fff}
+.primary:hover:not(:disabled){background:#173b63}
+.secondary:hover:not(:disabled){background:#e7f1fb}
+.primary:disabled,.secondary:disabled{cursor:default;opacity:.55}
+.back{display:inline-flex;align-items:center;align-self:start;color:var(--soft);border:0;background:transparent;padding:3px 0;margin:0 0 10px;font-size:.86rem}
+.back:hover{color:var(--brass)}
+.field{display:grid;gap:5px;color:var(--ink);font-weight:650;font-size:.9rem}
+.field input,.field select,.lobby select{min-width:0;width:100%;min-height:40px;color:#162e46;color-scheme:light;font:inherit;background:#fff;border:1px solid #a9c0d7;border-radius:8px;padding:7px 10px}
+.field input::placeholder{color:#617489}
+.fieldset{margin:0;padding:0;border:0;min-width:0}
+.fieldset legend{padding:0;margin-bottom:5px;font-size:.9rem;font-weight:650}
+.fieldset:disabled{opacity:.48}
+.segments{display:grid;grid-auto-columns:minmax(0,1fr);grid-auto-flow:column;gap:6px}
+.segments label{position:relative;text-align:center}
+.segments input{position:absolute;opacity:0;width:1px;height:1px}
+.segments span{display:block;padding:8px 3px;border-radius:7px;border:1px solid #aac0d9;color:var(--soft);cursor:pointer;font-size:.9rem}
+.segments input:checked+span{color:#193d67;background:#e0edf9;border-color:var(--brass);font-weight:700}
+.segments input:disabled+span{cursor:default}
+.menuShell :is(button,input,select,summary):focus-visible,.segments input:focus-visible+span{outline:2px solid var(--brass);outline-offset:3px}
+.menuShell .segments input:not(:focus-visible){outline:none}
+.detail,.notice{margin:0;color:var(--soft);font-size:.84rem}
+.notice{color:#78382d;overflow-wrap:anywhere;margin:10px 0 0}
+.calendar,.roomList{list-style:none;padding:0;margin:0;max-height:170px;overflow:auto}
+.calendar li,.roomList li{padding:6px 0;border-bottom:1px solid var(--line);display:flex;gap:9px;justify-content:space-between;font-size:.84rem}
+.calendar li span:last-child,.roomList li span:last-child{color:var(--soft);font-size:.79rem}
+.scoring{font-size:.85rem;color:var(--soft)}
+.scoring summary{cursor:pointer;color:var(--ink)}
+.scoring p{display:flex;flex-wrap:wrap;gap:6px 12px;margin:7px 0 0}
+.lobby h2{margin-bottom:10px}
+.lobby label{display:grid;gap:4px;font-size:.9rem;color:var(--soft)}
+.lobby .checkbox{display:flex;align-items:center;gap:8px}
+.lobby .checkbox input,.check input,.field input[type=range]{accent-color:#275991}.check,.sliderLabel{display:flex;align-items:center;gap:8px}.sliderLabel{justify-content:space-between}.sliderLabel output{font-size:.83rem;font-variant-numeric:tabular-nums;color:var(--soft)}.field input[type=range]{padding:0;min-height:26px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.carPicker{margin:0;padding:0;border:0;min-width:0}
+.carPicker legend{padding:0;margin-bottom:7px;font-size:.9rem;font-weight:700}
+.carChoices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,63px),1fr));gap:6px}
+.carChoices label{position:relative;min-width:0;cursor:pointer}
+.carChoices input{position:absolute;opacity:0;width:1px;height:1px}
+.carCard{display:grid;gap:3px;justify-items:center;padding:4px 2px 5px;text-align:center;border:1px solid #b4c8dc;border-radius:8px;background:#f4f8fc;color:#253c52;font-size:.72rem;font-weight:650;overflow-wrap:anywhere}
+.carStage{display:grid;place-items:center;width:100%;height:49px;border-radius:5px;background:radial-gradient(ellipse at 50% 45%,#fff,#e4edf5)}
+.carStage img{display:block;width:auto;height:44px;max-width:96%;object-fit:contain;filter:drop-shadow(1px 2px 1px #1b384833)}
+.carChoices label:hover .carCard{border-color:var(--brass);background:#e9f2fc}
+.carChoices input:checked+.carCard{border-color:#275991;background:#dcecff;box-shadow:inset 0 0 0 1px #275991;color:#193d67}
+.carChoices input:focus-visible+.carCard{outline:2px solid var(--brass);outline-offset:2px}
+.quickLayout{display:grid;gap:15px;align-items:start}
+@media(min-width:800px){
+  [data-screen="quick"] .menuPanel{width:min(100%,830px)}
+  .quickLayout{grid-template-columns:minmax(0,1fr) minmax(0,1.85fr);gap:25px;padding:9px 0}
+  .quickLayout .carStage{height:66px}
+  .quickLayout .carStage img{height:60px}
+}
+.menuShell::before{content:"";position:absolute;z-index:-1;inset:0;pointer-events:none;background:linear-gradient(150deg,transparent 57%,#aeccea21 57.2% 63%,transparent 63.2% 65%,#c0d9ef33 65.2% 76%,transparent 76.2%);background-attachment:local}
+@media(max-width:660px){.menuPanel{padding:15px}.menuPanel h2{font-size:37px;margin-bottom:12px}.menuHeader{gap:7px}.headerActions{gap:4px}.headerActions button{font-size:.73rem;padding:4px 7px}.menuShell::before{opacity:.55}}
+@media(prefers-reduced-motion:reduce){.menuPanel{animation:none}.choice{transition:none}}

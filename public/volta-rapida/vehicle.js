@@ -1,5 +1,5 @@
 // World-space handling profile. Future cars can override these three values.
-const roadCar={acceleration:210,topSpeed:410,turn:1};
+const roadCar={acceleration:135,topSpeed:410,turn:1};
 const kilometersPerHour=.5;
 
 function angleBetween(target,current){
@@ -14,7 +14,7 @@ function driveCar(car,{throttle,steer,drift},dt){
   const ratio=Math.min(1,speed/topSpeed);
   const forwardBefore=car.vx*Math.cos(car.a)+car.vy*Math.sin(car.a);
   const sliding=drift && grass<.5;
-  const turnRate=(sliding?2.58:1.94-.78*ratio)*turn*(1-.26*grass);
+  const turnRate=(sliding?2.58:1.94-1.12*ratio)*turn*(1-.26*grass);
   const steering=steer*turnRate*Math.min(1,speed/95)*(forwardBefore<0?-1:1);
   car.a+=((speed>4?steering:0)+car.spin)*dt;
   car.spin*=Math.exp(-dt*(sliding?2.25:2.9));
@@ -24,10 +24,11 @@ function driveCar(car,{throttle,steer,drift},dt){
   let sideways=car.vy*fx-car.vx*fy;
   // Power tapers as the car approaches its rated top speed.
   const opposing=forward*throttle<0;
+  car.motorLoad=opposing?0:Math.abs(throttle);
   const power=opposing?365:acceleration*(1-.70*Math.min(1,Math.abs(forward)/topSpeed)**2);
   forward+=throttle*power*dt;
   if(sliding){
-    const brake=(Math.abs(steer)>.12?36:175)*dt;
+    const brake=(Math.abs(steer)>.12?26:175)*dt;
     forward=Math.sign(forward)*Math.max(0,Math.abs(forward)-brake);
   }
   // Grass adds smooth, continuous rolling resistance without changing the
@@ -36,7 +37,8 @@ function driveCar(car,{throttle,steer,drift},dt){
   const drag=(throttle===0?.46:.085)+grass*4.2;
   forward*=Math.exp(-drag*dt);
   sideways*=Math.exp(-dt*grass*2.1);
-  const grip=sliding?2.1:9.7-4.7*grass;
+  const cornerLoad=Math.min(1,Math.abs(steer)*ratio);
+  const grip=sliding?2.1:(9.7-4.7*grass)*(1-.34*cornerLoad);
   const wanted=sideways*(1-Math.exp(-grip*dt));
   const correction=(sliding?590:510-285*grass)*dt;
   sideways-=Math.sign(wanted)*Math.min(correction,Math.abs(wanted));
@@ -62,72 +64,121 @@ function keepInsideMap(car){
   car.x=x;car.y=y;
 }
 
+function sweepRail(segment,x,y,dx,dy,radius){
+  const {a,b,nx,ny}=segment;
+  let hit=null;
+  function consider(t,normalX,normalY){
+    if(t>=0 && t<=1 && (!hit || t<hit.t)) hit={t,nx:normalX,ny:normalY};
+  }
+
+  const offset=railOffset(segment,x,y);
+  const clearance=Math.hypot(offset.x,offset.y);
+  if(clearance>1e-6 && clearance<radius && offset.x*dx+offset.y*dy<0){
+    return {t:0,nx:offset.x/clearance,ny:offset.y/clearance};
+  }
+
+  // Test both faces, then the rounded ends of the finite wall segment.
+  const distance=(x-a.x)*nx+(y-a.y)*ny;
+  const normalTravel=dx*nx+dy*ny;
+  const side=Math.sign(distance);
+  if(side*normalTravel<0 && Math.abs(distance)>=radius){
+    const t=(side*radius-distance)/normalTravel;
+    const along=((x+dx*t-a.x)*segment.dx+(y+dy*t-a.y)*segment.dy)/segment.lengthSquared;
+    if(along>=0 && along<=1) consider(t,side*nx,side*ny);
+  }
+
+  const travelSquared=dx*dx+dy*dy;
+  for(const end of [a,b]){
+    const rx=x-end.x,ry=y-end.y;
+    const along=rx*dx+ry*dy;
+    const outside=rx*rx+ry*ry-radius*radius;
+    const discriminant=along*along-travelSquared*outside;
+    if(along>=0 || outside<0 || discriminant<0) continue;
+    const t=(-along-Math.sqrt(discriminant))/travelSquared;
+    consider(t,(rx+t*dx)/radius,(ry+t*dy)/radius);
+  }
+  return hit;
+}
+
 function keepOutsideRails(car,oldX,oldY){
-  const contactRadius=13;
-  const segments=trackBarriers.nearby(oldX,oldY,car.x,car.y,40);
+  resolveRailContacts(car,oldX,oldY,trackBarriers,10+trackWallWidth/2);
+}
+
+function resolveRailContacts(car,oldX,oldY,barriers,radius){
+  const segments=barriers.nearby(oldX,oldY,car.x,car.y,38);
   if(!segments.size) return;
-
-  // A contact in the pack can displace a car farther than its own motion.
-  // Sweep the centre as well as resolving the bumpers at the final pose.
-  let hitAt=1;
-  for(const {a,dx,dy,nx,ny,lengthSquared} of segments){
-    const before=(oldX-a.x)*nx+(oldY-a.y)*ny;
-    const after=(car.x-a.x)*nx+(car.y-a.y)*ny;
-    if(before<0 || after>=0) continue;
-    const t=before/(before-after);
-    if(t>=hitAt) continue;
-    const x=oldX+t*(car.x-oldX),y=oldY+t*(car.y-oldY);
-    const along=((x-a.x)*dx+(y-a.y)*dy)/lengthSquared;
-    if(along>=0 && along<=1) hitAt=t;
-  }
-  if(hitAt<1){
-    car.x=oldX+hitAt*(car.x-oldX);
-    car.y=oldY+hitAt*(car.y-oldY);
-  }
-
   const fx=Math.cos(car.a),fy=Math.sin(car.a);
+  const bumpers=[-11,0,11];
+  let x=oldX,y=oldY,dx=car.x-oldX,dy=car.y-oldY;
   let impact=false;
-  for(let pass=0;pass<3;pass++){
-    let touching=false;
-    for(const end of [-11,0,11]){
-      const x=car.x+fx*end,y=car.y+fy*end;
-      const walls=[null,null];
+  function stopInward(nx,ny){
+    const inward=car.vx*nx+car.vy*ny;
+    if(inward>=0) return;
+    car.vx-=nx*inward;
+    car.vy-=ny*inward;
+    impact=true;
+  }
+
+  // Sweep the bumpers even after a pack collision displaces the car. Spend
+  // the remaining movement along the wall instead of snapping it back.
+  for(let pass=0;pass<3 && Math.hypot(dx,dy)>1e-6;pass++){
+    let hit=null;
+    for(const end of bumpers){
+      const px=x+fx*end,py=y+fy*end;
       for(const segment of segments){
-        const offset=railOffset(segment,x,y);
-        const squared=offset.x*offset.x+offset.y*offset.y;
-        const nearest=walls[segment.wall];
-        if(!nearest || squared<nearest.squared) walls[segment.wall]={segment,offset,squared};
-      }
-      for(const nearest of walls){
-        if(!nearest) continue;
-        const {segment,offset,squared}=nearest;
-        const distance=Math.sqrt(squared);
-        const inside=offset.x*segment.nx+offset.y*segment.ny>=0;
-        const clearance=inside?distance:-distance;
-        if(clearance>=contactRadius) continue;
-        // An unrelated stretch of the same wall is not a contact.
-        if(distance>contactRadius+30) continue;
-        const nx=distance>1e-5?offset.x/clearance:segment.nx;
-        const ny=distance>1e-5?offset.y/clearance:segment.ny;
-        car.x+=nx*(contactRadius-clearance);
-        car.y+=ny*(contactRadius-clearance);
-        const inward=car.vx*nx+car.vy*ny;
-        if(inward<0){
-          car.vx-=nx*inward*1.08;
-          car.vy-=ny*inward*1.08;
-          impact=true;
-        }
-        touching=true;
+        const contact=sweepRail(segment,px,py,dx,dy,radius);
+        if(contact && (!hit || contact.t<hit.t)) hit=contact;
       }
     }
-    if(!touching) break;
+    if(!hit){x+=dx;y+=dy;break;}
+    const {t,nx,ny}=hit;
+    x+=dx*t+nx*.02; y+=dy*t+ny*.02;
+    const normal=dx*nx+dy*ny;
+    dx=(dx-normal*nx)*(1-t);
+    dy=(dy-normal*ny)*(1-t);
+    stopInward(nx,ny);
   }
+
+  // Steering at rest can rotate a bumper into a post without moving the
+  // centre. Resolve that small overlap from the side the car approached.
+  for(let pass=0;pass<3;pass++){
+    let corrected=false;
+    for(const end of bumpers){
+      const px=x+fx*end,py=y+fy*end;
+      let closest=null;
+      for(const segment of segments){
+        const offset=railOffset(segment,px,py);
+        const distance=Math.hypot(offset.x,offset.y);
+        if(distance<radius && (!closest || distance<closest.distance))
+          closest={segment,offset,distance};
+      }
+      if(!closest) continue;
+      const {segment,offset,distance}=closest;
+      const side=Math.sign((oldX-segment.a.x)*segment.nx+(oldY-segment.a.y)*segment.ny)||1;
+      const nx=distance>1e-6?offset.x/distance:segment.nx*side;
+      const ny=distance>1e-6?offset.y/distance:segment.ny*side;
+      x+=nx*(radius-distance+.02); y+=ny*(radius-distance+.02);
+      stopInward(nx,ny);
+      corrected=true;
+    }
+    if(!corrected) break;
+  }
+  car.x=x; car.y=y;
   if(impact){car.vx*=.86;car.vy*=.86;}
+}
+
+function resolveRaceEnvironment(car,oldX,oldY){
+  keepInsideMap(car);
+  keepOutsideRails(car,oldX,oldY);
+  keepOutsideScenery(car,oldX,oldY);
+  // Keep the last constraint on the hidden boundary even if contact with
+  // a trunk, the river, or another car displaced the vehicle this step.
+  resolveRailContacts(car,oldX,oldY,runoffBarriers,10);
 }
 
 // Resolve scenery contacts at ground level, preserving tangential motion.
 function keepOutsideScenery(car,oldX,oldY){
-  if(typeof scenery==='undefined' || typeof objectShadows==='undefined' || !objectShadows) return;
+  if(typeof nearbyTreeTrunks==='undefined' || !nearbyTreeTrunks) return;
   const radius=10;
   function impact(nx,ny){
     const normal=car.vx*nx+car.vy*ny;
@@ -137,11 +188,8 @@ function keepOutsideScenery(car,oldX,oldY){
       car.vx*=.88; car.vy*=.88;
     }
   }
-  for(const [kind,x,y,size] of scenery){
-    if(species[kind]>=4) continue;
-    const root=objectShadows[kind].root;
-    const cx=x+(root.x-.5)*size,cy=y+(root.y-.5)*size;
-    const reach=radius+size*.075;
+  for(const {x:cx,y:cy,radius:trunkRadius} of nearbyTreeTrunks(car.x,car.y)){
+    const reach=radius+trunkRadius;
     if(Math.abs(car.x-cx)>reach+25 || Math.abs(car.y-cy)>reach+25) continue;
     const fx=Math.cos(car.a),fy=Math.sin(car.a);
     for(const end of [-11,0,11]){

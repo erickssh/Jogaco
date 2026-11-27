@@ -5,16 +5,16 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 const gameRoot=path.join(__dirname,'../public/volta-rapida');
-const source=['circuit','vehicle','race'].map(name=>readFileSync(path.join(gameRoot,name+'.js'),'utf8')).join('\n');
+const source=['car-models','circuit','vehicle','race'].map(name=>readFileSync(path.join(gameRoot,name+'.js'),'utf8')).join('\n');
 const game=vm.runInNewContext(source+
-  '\n;({TRACK,makeCircuit,tangentBends,makeTrackBarriers,raceLaps,gateCount,gateSpacing,startDistance,trackBarriers,gridPosition,racePoint,keepOutsideRails,updateRacePosition,advanceRaceGates,recordPassage,updateIntervals,carContact,driveCar,roadCar})',
+  '\n;({TRACK,makeCircuit,tangentBends,makeCourseRunoff,timingGates,raceLaps,gateCount,gateSpacing,startDistance,trackBarriers,runoffBarriers,gridPosition,racePoint,keepOutsideRails,resolveRailContacts,resolveRaceEnvironment,updateRacePosition,advanceRaceGates,recordPassage,updateIntervals,carContact,driveCar,roadCar})',
   {Path2D:class{moveTo(){} lineTo(){} arc(){} closePath(){}}});
 
 function move(car,point,time){
   const {x,y}=car;
   car.x=point.x;
   car.y=point.y;
-  game.keepOutsideRails(car,x,y);
+  game.resolveRaceEnvironment(car,x,y);
   game.updateRacePosition(car,x,y,time,1/60);
 }
 
@@ -24,93 +24,180 @@ function trace(car,from,to,laneAt=()=>0,step=4){
   }
 }
 
-test('Both barriers form closed non-intersecting loops beyond the asphalt',()=>{
+test('The two walls hug the marked inside edges, with no wall on the opposite side',()=>{
   const {TRACK,trackBarriers}=game;
-  const {paths}=trackBarriers;
-  const extent=2*TRACK.halfWidth;
-  for(const [side,wall] of paths.entries()){
-    let atTarget=0;
-    for(let index=0;index<wall.length;index++){
-      const a=wall[index],b=wall[(index+1)%wall.length];
-      const offset=Math.abs(TRACK.offsetAt((a.x+b.x)/2,(a.y+b.y)/2));
-      assert(offset>TRACK.halfWidth+7,'rail and its paint clear the asphalt');
-      assert(offset<=extent+.001,'rail is never farther out than requested');
-      if(offset>extent-.2) atTarget++;
-      for(const other of trackBarriers.nearby(a.x,a.y,b.x,b.y,0)){
-        if(other.wall===side && (other.a===a || other.b===a || other.a===b)) continue;
+  assert.equal(trackBarriers.paths.length,2);
+  let length=0;
+  for(const points of trackBarriers.paths){
+    assert.notDeepEqual(points[0],points.at(-1));
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i];
+      length+=Math.hypot(b.x-a.x,b.y-a.y);
+      for(let t=0;t<=1;t+=.05){
+        const offset=TRACK.offsetAt(a.x+(b.x-a.x)*t,a.y+(b.y-a.y)*t);
+        assert(Math.abs(offset-TRACK.halfWidth)<.3,'wall follows the inside edge');
+      }
+    }
+  }
+  assert(length<TRACK.length*.20);
+});
+
+test('Both walls stop high speed cuts while the car is still on asphalt',()=>{
+  const {TRACK,trackBarriers}=game;
+  for(const points of trackBarriers.paths){
+    for(let i=1;i<points.length;i++){
+      const a=points[i-1],b=points[i];
+      const length=Math.hypot(b.x-a.x,b.y-a.y);
+      for(const t of [0,.5,1]){
+        const x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
+        const nx=(a.y-b.y)/length,ny=(b.x-a.x)/length;
+        const oldX=x+nx*32,oldY=y+ny*32;
+        const car={x:x-nx*48,y:y-ny*48,a:Math.atan2(-ny,-nx),vx:-410*nx,vy:-410*ny};
+        const heading=car.a;
+        game.keepOutsideRails(car,oldX,oldY);
+        assert((car.x-x)*nx+(car.y-y)*ny>0,'sweep prevents tunneling');
+        assert(Math.abs(TRACK.offsetAt(car.x,car.y))<TRACK.halfWidth);
+        assert(Math.hypot(car.vx,car.vy)<220);
+        assert.equal(car.a,heading);
+      }
+    }
+  }
+});
+
+test('The invisible boundaries form two closed, nonintersecting loops off asphalt',()=>{
+  const {TRACK,runoffBarriers}=game;
+  assert.equal(runoffBarriers.paths.length,2);
+  for(const wall of runoffBarriers.paths){
+    let fullWidth=0;
+    for(let i=0;i<wall.length;i++){
+      const a=wall[i],b=wall[(i+1)%wall.length];
+      const nearby=runoffBarriers.nearby(a.x,a.y,b.x,b.y,0);
+      assert([...nearby].some(segment=>segment.a===a && segment.b===b),'no gaps, including the seam');
+      const distance=Math.abs(TRACK.offsetAt((a.x+b.x)/2,(a.y+b.y)/2));
+      assert(distance>TRACK.halfWidth+7 && distance<=2*TRACK.halfWidth+.01);
+      if(distance>2*TRACK.halfWidth-.1) fullWidth++;
+      for(const other of nearby){
         const dx=b.x-a.x,dy=b.y-a.y,rx=other.a.x-a.x,ry=other.a.y-a.y;
         const cross=dx*other.dy-dy*other.dx;
         if(Math.abs(cross)<1e-9) continue;
         const along=(rx*other.dy-ry*other.dx)/cross;
         const across=(rx*dy-ry*dx)/cross;
-        assert(!(along>1e-7 && along<1-1e-7 && across>1e-7 && across<1-1e-7),'barriers do not cross');
+        assert(!(along>1e-7 && along<1-1e-7 && across>1e-7 && across<1-1e-7),'closed boundaries cannot cross');
       }
     }
-    assert(atTarget>0,'the full setback is used where it fits');
+    assert(fullWidth>wall.length/4,'open sections use the full setback');
   }
 });
 
-test('A different circuit derives half-width setbacks from its own dimensions',()=>{
-  const track=game.makeCircuit(10,game.tangentBends([
-    [50,50,18],[200,50,18],[200,140,18],[50,140,18]
-  ]));
-  const rails=game.makeTrackBarriers(track,0);
-  for(const wall of rails.paths) for(const p of wall){
-    assert(Math.abs(Math.abs(track.offsetAt(p.x,p.y))-10)<.01);
-  }
-});
-
-function insideLoop(x,y,points){
-  let inside=false;
-  for(const [i,a] of points.entries()){
-    const b=points[(i+1)%points.length];
-    if((a.y>y)!==(b.y>y) && x<a.x+(y-a.y)*(b.x-a.x)/(b.y-a.y)) inside=!inside;
-  }
-  return inside;
-}
-
-test('A full-speed hit and a large displacement stay inside either wall, including the seam',()=>{
-  const {TRACK,trackBarriers}=game;
-  for(const [side,points] of trackBarriers.paths.entries()){
-    for(const index of [...points.keys()].filter(i=>i%13===0 || i===points.length-1)){
-      const a=points[index],b=points[(index+1)%points.length];
-      const p=TRACK.pointAt(game.startDistance+index*TRACK.length/points.length);
+test('Both invisible boundaries stop full speed contact and swept displacements',()=>{
+  const {runoffBarriers}=game;
+  for(const [side,points] of runoffBarriers.paths.entries()){
+    for(const i of [...points.keys()].filter(i=>i%11===0 || i===points.length-1)){
+      const a=points[i],b=points[(i+1)%points.length];
       const x=(a.x+b.x)/2,y=(a.y+b.y)/2;
       const length=Math.hypot(b.x-a.x,b.y-a.y);
-      const nx=(1-2*side)*(b.y-a.y)/length,ny=(1-2*side)*(a.x-b.x)/length;
-      const oldX=x+nx*13.5,oldY=y+ny*13.5;
-      const car={x:x+nx*7,y:y+ny*7,a:Math.atan2(-ny,-nx),vx:-410*nx,vy:-410*ny};
-      game.keepOutsideRails(car,oldX,oldY);
-      assert((car.x-x)*nx+(car.y-y)*ny>0);
-      assert(Math.hypot(car.vx,car.vy)<410,'a wall hit dissipates speed');
-      assert.equal(trackBarriers.paths.filter(path=>insideLoop(car.x,car.y,path)).length,1);
-      car.x=x-nx*50;car.y=y-ny*50;
-      game.keepOutsideRails(car,oldX,oldY);
-      assert.equal(trackBarriers.paths.filter(path=>insideLoop(car.x,car.y,path)).length,1,'sweep prevents tunneling');
-      const road=game.racePoint(index*TRACK.length/points.length,0);
-      const clean={...road,vx:p.tx*410,vy:p.ty*410};
-      game.keepOutsideRails(clean,road.x-p.tx*6,road.y-p.ty*6);
-      assert.equal(clean.x,road.x);
-      assert.equal(clean.y,road.y);
+      const sign=side===1?1:-1;
+      const nx=sign*(a.y-b.y)/length,ny=sign*(b.x-a.x)/length;
+      for(const target of [18,-45]){
+        const oldX=x+nx*29,oldY=y+ny*29;
+        const car={x:x+nx*target,y:y+ny*target,a:Math.atan2(-ny,-nx),vx:-410*nx,vy:-410*ny};
+        game.resolveRailContacts(car,oldX,oldY,runoffBarriers,10);
+        assert((car.x-x)*nx+(car.y-y)*ny>0,'car stays on the road side of the invisible boundary');
+        assert(Math.hypot(car.vx,car.vy)<410,'impact reduces speed');
+      }
     }
   }
 });
 
-test('Laps count entirely off asphalt where the corridor allows it, in either verge',()=>{
-  const length=game.TRACK.length;
+test('The car may cross the finish line entirely on either grass verge and still count the lap',()=>{
+  const {TRACK}=game;
   for(const side of [-1,1]){
-    const wall=game.trackBarriers.paths[side===1?1:0];
-    const count=wall.length;
     const car=game.gridPosition(0);
-    const laneAt=s=>{
-      const i=((Math.round(s/length*count)%count)+count)%count;
-      const centre=game.racePoint(i*length/count,0);
-      return side*Math.min(140,Math.hypot(wall[i].x-centre.x,wall[i].y-centre.y)-26);
-    };
-    trace(car,-26,2*length+8,laneAt);
-    assert.equal(car.checkpoint,2*game.gateCount);
+    const lane=s=>side*145*Math.max(0,Math.min(1,(s-TRACK.length+135)/120));
+    trace(car,-26,TRACK.length+8,lane,2);
+    assert.equal(car.checkpoint,game.gateCount);
     assert(car.lastLapTime>0);
-    assert(Math.abs(car.lane)>game.TRACK.halfWidth+23,'crossing can occur fully on the grass');
+    assert(Math.abs(car.lane)>TRACK.halfWidth+20);
+  }
+});
+
+test('Multiplayer host snapshots and guest prediction enforce the same runoff',()=>{
+  const online=readFileSync(path.join(gameRoot,'online-race.js'),'utf8');
+  const match={id:'test-runoff',difficulty:'medio',fillBots:false,players:[
+    {name:'Anfitrião',carModel:'agulha'},{name:'Convidado',carModel:'cupim'}
+  ]};
+  function peer(host,id){
+    let listener,now=100;
+    const packets=[];
+    const parent={},origin='http://localhost';
+    const api=vm.runInNewContext(source+
+      '\nlet car,bots,done=false,elapsed=0,raceClosed=false,difficulty; const ready=true,externalMenu=false;'+
+      '\nconst camera={},setup={},positionEl={},canvas={focus(){}},raceNotice={},playerPaint=[];'+
+      '\nfunction raceControls(){return {throttle:1,steer:0,drift:false};}'+
+      '\nfunction reset(){} function updateRaceHud(){} function renderStandings(){} function collectIntervals(){}\n'+
+      online+'\n;({onlineRace, own:()=>car, opponents:()=>bots})',
+      {parent,location:{origin},performance:{now:()=>now},document:{querySelector:()=>({})},
+        addEventListener:(_,handler)=>{listener=handler;},
+        Path2D:class{moveTo(){} lineTo(){} arc(){} closePath(){}}});
+    const port={postMessage:packet=>packets.push(packet)};
+    listener({source:parent,origin,data:{type:'vr-connect'},ports:[port]});
+    const receive=(type,payload)=>port.onmessage({data:{type,payload}});
+    receive('start',{match,host,id});
+    return {api,packets,receive,tick:(time,dt)=>{now=time;api.onlineRace.tick(dt,now);}};
+  }
+  const host=peer(true,8),guest=peer(false,7);
+  const remote=host.api.opponents()[0];
+  assert.equal(host.api.own().carModel,'agulha');
+  assert.equal(remote.carModel,'cupim');
+  assert.equal(guest.api.own().carModel,'cupim');
+  assert.equal(guest.api.opponents()[0].carModel,'agulha');
+  function replicate(now,dt=0){
+    host.tick(now,dt);
+    const packet=host.packets.at(-1);
+    assert.equal(packet.type,'snapshot');
+    guest.tick(now,0);
+    guest.receive('snapshot',packet.payload);
+  }
+
+  const approach=game.racePoint(200,153);
+  const axis=game.TRACK.pointAt(game.startDistance+200);
+  Object.assign(remote,approach,{a:Math.atan2(-axis.tx,axis.ty),vx:410*axis.ty,vy:-410*axis.tx,lane:153});
+  replicate(5000);
+  for(let i=1;i<=5;i++){
+    guest.tick(5000+i*17,1/60);
+    host.tick(5000+i*17,1/60);
+  }
+  for(const driver of [remote,guest.api.own()]){
+    assert(driver.lane>=153 && driver.lane<171);
+    assert(Math.hypot(driver.vx,driver.vy)<30);
+  }
+
+  const finish=game.racePoint(game.TRACK.length-1,125);
+  Object.assign(remote,finish,{lane:125,vx:190*Math.cos(finish.a),vy:190*Math.sin(finish.a),
+    routeGate:game.gateCount-1,checkpoint:0});
+  replicate(5200,1/60);
+  assert.equal(remote.checkpoint,game.gateCount);
+  assert.equal(guest.api.own().checkpoint,game.gateCount);
+  assert(guest.api.own().lastLapTime>0);
+  assert(guest.api.own().lane>game.TRACK.halfWidth+20);
+});
+
+test('Cutting across the northern hairpin or southwest loop cannot credit a lap',()=>{
+  const length=game.TRACK.length;
+  for(const [from,to] of [[3100,4060],[3225,3946],[5850,6720],[5990,6640]]){
+    const car=game.gridPosition(0);
+    trace(car,-26,from);
+    const a=game.racePoint(from,0),b=game.racePoint(to,0);
+    // Even a detour around the end of the fence must visit the intervening
+    // timing lines. Bypass physical contact here to exercise that safeguard.
+    for(let i=1;i<=140;i++){
+      const {x,y}=car;
+      car.x=a.x+(b.x-a.x)*i/140;
+      car.y=a.y+(b.y-a.y)*i/140;
+      game.updateRacePosition(car,x,y,30+i/60,1/60);
+    }
+    trace(car,to,length+8);
+    assert.equal(car.checkpoint,0);
   }
 });
 

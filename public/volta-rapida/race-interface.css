@@ -1,0 +1,64 @@
+.app{height:100dvh;display:block}
+.stage{height:100%;--edge:clamp(8px,1.65vw,18px);--hud:#14171cec;--rim:#f0f4fc35;--white:#f5f7fc;--soft:#b5bfce;--accent:#ffc475;color:var(--white)}
+.course-hud,.standings,#map,.spectator-bar,.speedometer,
+.start-signal{border:1px solid var(--rim);box-shadow:0 5px 16px #0a101653}
+.course-hud{position:absolute;top:var(--edge);left:var(--edge);max-width:37%;width:max-content;padding:8px 11px 9px;border-radius:10px;background:#14171c;pointer-events:none}
+.course{display:block;color:var(--soft);font-size:clamp(.66rem,1.3vw,.8rem);font-weight:600;line-height:1.2;text-wrap:balance}
+.race{display:flex;gap:12px;margin-top:7px}
+.stat{min-width:0;display:grid;gap:2px}
+.stat+.stat{padding-left:12px;border-left:1px solid var(--rim)}
+.stat small{font-size:.63rem;color:var(--soft);font-weight:700}
+.stat strong{font:700 clamp(1.05rem,2.5vw,1.45rem)/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums;white-space:nowrap}
+.standings{top:var(--edge);right:var(--edge);max-width:47%;width:220px;border-radius:10px;background:#14171c;color:var(--white);padding:8px 10px}
+.standings strong{color:var(--soft);font-size:.72rem}
+.standings .interval{color:#e5ebf6}
+.standings li[aria-current]{color:var(--accent)}
+.standings .lap-split{background:var(--accent);color:#29221b}
+#map{position:absolute;bottom:var(--edge);right:var(--edge);width:clamp(86px,17vw,140px);height:auto;aspect-ratio:266/182;background:#14171c;border-radius:10px;pointer-events:none}
+.speedometer{position:absolute;bottom:var(--edge);left:var(--edge);width:clamp(86px,15vw,132px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 50% 31%,#333943,#1b2027 55%,#101318 86%);pointer-events:none}
+.speedometer svg{display:block;width:100%;height:100%}
+.dial-track{fill:none;stroke:#444f60;stroke-width:2;stroke-linecap:round}
+.dial-band{stroke:var(--accent)}
+.dial-tick{stroke:#a3b0c0;stroke-width:.65;stroke-linecap:round}
+.dial-tick.major{stroke:#eef1f5;stroke-width:1.2}
+.dial-number{fill:#c7d0db;text-anchor:middle;font:700 6.8px "Barlow Condensed",sans-serif}
+#speed-needle{transform-origin:64px 64px;fill:var(--accent);filter:drop-shadow(0 1px 2px #0009)}
+.dial-hub{fill:#1b2027;stroke:#d5dbe3;stroke-width:1.2}
+.speed-readout{position:absolute;inset:60% 0 auto;display:grid;justify-items:center;line-height:1}
+.speed-readout strong{font:700 clamp(.98rem,3.2vw,1.65rem)/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums}
+.speed-readout span{margin-top:2px;color:var(--soft);font-size:clamp(.44rem,.95vw,.61rem);font-weight:700}
+.start-signal{top:var(--edge);background:linear-gradient(#343943,#181c22)}
+.start-lamp{border-color:#171b20;box-shadow:inset 0 2px 5px #14171c,0 0 0 1px #e5ebf53b}
+.spectator-bar{bottom:var(--edge);color:var(--white);background:var(--hud);max-width:calc(100% - 310px);width:max-content}
+.spectator-bar .reset{color:var(--white);background:#2a313a;border-color:var(--rim)}
+.menu-scene :is(.course-hud,#map,.standings,.speedometer,#sound-toggle){visibility:hidden}
+.app[data-embedded] #sound-toggle{display:none}
+.app[data-expanded="true"] :is(.course-hud,.standings,.speedometer,#map,.start-signal,.results-card,.spectator-bar,.race-menu-card){zoom:var(--fullscreen-scale,1)}
+#sound-toggle{bottom:calc(var(--edge) + clamp(86px,15vw,132px) + 8px);left:var(--edge);background:var(--hud);color:var(--white);border-color:var(--rim)}
+.race-menu{border:0;background:transparent;color:var(--white);max-width:100%;max-height:100%;padding:12px;overflow:auto}
+.race-menu::backdrop{background:#0c111873}
+.race-menu-card{width:min(340px,84vw);padding:20px;border-radius:16px;border:1px solid var(--rim);background:#181d25f7;box-shadow:0 16px 40px #070a1090;animation:results-open .21s ease-out both}
+.race-menu-card h2{margin:0 0 12px;font:800 1.85rem/1.04 "Barlow Condensed",sans-serif}
+.race-menu-card p{margin:0 0 12px;color:var(--soft);font-size:.83rem}
+.race-menu-actions{display:grid;gap:7px}
+.race-menu-card button{width:100%;text-align:left;padding:8px 11px;min-height:34px;background:#272e38;border:1px solid var(--rim);color:var(--white);overflow-wrap:anywhere}
+.race-menu-card button:hover{background:#353f4e}
+.race-menu-card button:disabled{opacity:.55;cursor:default}
+.race-menu-card :is(#race-resume,#race-confirm){background:#dce8f7;color:#18222e}
+.race-menu-card :is(#race-resume,#race-confirm):hover{background:#fff}
+.race-menu-online{margin-top:10px;padding-top:10px;border-top:1px solid var(--rim)}
+.race-menu-online label{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:.78rem}
+.race-menu-online select{max-width:100%;min-width:0;background:#272e38;color:var(--white);border:1px solid var(--rim);border-radius:4px}
+.race-menu-online p{margin:6px 0 0;overflow-wrap:anywhere}
+.race-menu-card :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.results-table :is(th,td):last-child{width:34%;white-space:normal}
+.results-table th{letter-spacing:.04em}
+@media(max-width:680px){
+  .standings{padding:6px 7px}.race{gap:7px}.stat+.stat{padding-left:7px}
+  .standings .interval{font-size:.66rem}
+  .spectator-bar{bottom:calc(var(--edge) + clamp(86px,15vw,132px) + 8px);max-width:94%}
+  .start-signal{top:auto;bottom:calc(var(--edge) + 8px);padding:6px 8px;gap:6px}
+  .start-lamp{width:clamp(19px,5vw,30px)}
+}
+@media(max-width:420px){.course-hud{padding:7px}.stat small{font-size:.59rem}.standings li{gap:4px}}
+@media(prefers-reduced-motion:reduce){.race-menu-card{animation:none}}
