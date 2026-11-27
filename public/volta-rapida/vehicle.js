@@ -59,54 +59,106 @@ function keepInsideMap(car){
   car.x=x;car.y=y;
 }
 
-function carContact(a,b){
-  const dx=a.x-b.x,dy=a.y-b.y;
-  if(dx*dx+dy*dy>44**2) return;
-  const ax=Math.cos(a.a)*11,ay=Math.sin(a.a)*11;
-  const bx=Math.cos(b.a)*11,by=Math.sin(b.a)*11;
-  let contact;
-  for(const endA of [-1,1]){
-    for(const endB of [-1,1]){
-      const cx=dx+ax*endA-bx*endB,cy=dy+ay*endA-by*endB;
-      const distance=Math.hypot(cx,cy);
-      if(distance>=21 || (contact && distance>=contact.distance)) continue;
-      const nx=distance>.01?cx/distance:-Math.sin(b.a);
-      const ny=distance>.01?cy/distance:Math.cos(b.a);
-      contact={distance,nx,ny,x:b.x+bx*endB+nx*distance*.5,y:b.y+by*endB+ny*distance*.5};
+function keepOutsideRails(car){
+  // Match the length of the chassis with a front and rear bumper.
+  for(const segment of railSegments){
+    for(const end of [-11,11]){
+      const offset=railOffset(segment,car.x+Math.cos(car.a)*end,car.y+Math.sin(car.a)*end);
+      const distance=Math.hypot(offset.x,offset.y);
+      if(distance>=17) continue;
+      const along=Math.hypot(segment.dx,segment.dy);
+      const side=Math.sign(car.vx*segment.dy-car.vy*segment.dx)||1;
+      const nx=distance>1e-6?offset.x/distance:-side*segment.dy/along;
+      const ny=distance>1e-6?offset.y/distance:side*segment.dx/along;
+      car.x+=nx*(17-distance);
+      car.y+=ny*(17-distance);
+      const inward=car.vx*nx+car.vy*ny;
+      if(inward<0){
+        car.vx=.86*(car.vx-nx*inward*1.08);
+        car.vy=.86*(car.vy-ny*inward*1.08);
+      }
     }
   }
-  if(!contact) return;
-  const {distance,nx,ny,x,y}=contact;
-  const ra={x:x-a.x,y:y-a.y},rb={x:x-b.x,y:y-b.y};
-  const relativeX=a.vx-b.vx-a.spin*ra.y+b.spin*rb.y;
-  const relativeY=a.vy-b.vy+a.spin*ra.x-b.spin*rb.x;
-  const closing=-(relativeX*nx+relativeY*ny);
-  const overlap=(21-distance)*.5;
-  a.x+=nx*overlap;a.y+=ny*overlap;
-  b.x-=nx*overlap;b.y-=ny*overlap;
-  if(closing<=3) return;
+}
 
-  // Impact torque is the force times its lever arm about the centre of the car.
-  const inverseInertia=1/178;
+function carAxes(car){
+  const fx=Math.cos(car.a),fy=Math.sin(car.a);
+  return [{x:fx,y:fy,half:20},{x:-fy,y:fx,half:10}];
+}
+
+function projectionRadius(axes,x,y){
+  return axes.reduce((span,axis)=>span+axis.half*Math.abs(axis.x*x+axis.y*y),0);
+}
+
+// The leading feature is an edge for square impacts and a corner for a
+// glancing impact. Project it onto the tangent to find the actual lever arm.
+function facingSpan(car,axes,nx,ny,tx,ty){
+  let center=car.x*tx+car.y*ty,half=0;
+  for(const axis of axes){
+    const toward=axis.x*nx+axis.y*ny;
+    const span=axis.half*(axis.x*tx+axis.y*ty);
+    if(Math.abs(toward)<.025) half+=Math.abs(span);
+    else center+=Math.sign(toward)*span;
+  }
+  return {min:center-half,max:center+half};
+}
+
+function carContact(a,b){
+  const dx=b.x-a.x,dy=b.y-a.y;
+  if(dx*dx+dy*dy>45*45) return;
+  const axesA=carAxes(a),axesB=carAxes(b);
+  let depth=Infinity,nx=0,ny=0,plane=0;
+  for(const axis of [...axesA,...axesB]){
+    const along=dx*axis.x+dy*axis.y;
+    const ra=projectionRadius(axesA,axis.x,axis.y);
+    const rb=projectionRadius(axesB,axis.x,axis.y);
+    const overlap=ra+rb-Math.abs(along);
+    if(overlap<=0) return;
+    if(overlap<depth){
+      depth=overlap;
+      const sign=along>=0?1:-1;
+      nx=axis.x*sign;
+      ny=axis.y*sign;
+      plane=(a.x*nx+a.y*ny+ra+b.x*nx+b.y*ny-rb)/2;
+    }
+  }
+
+  const tx=-ny,ty=nx;
+  const faceA=facingSpan(a,axesA,nx,ny,tx,ty);
+  const faceB=facingSpan(b,axesB,-nx,-ny,tx,ty);
+  const tangent=(Math.max(faceA.min,faceB.min)+Math.min(faceA.max,faceB.max))/2;
+  const x=nx*plane+tx*tangent,y=ny*plane+ty*tangent;
+  const ra={x:x-a.x,y:y-a.y},rb={x:x-b.x,y:y-b.y};
+  const relativeX=b.vx-a.vx-b.spin*rb.y+a.spin*ra.y;
+  const relativeY=b.vy-a.vy+b.spin*rb.x-a.spin*ra.x;
+  const closing=-(relativeX*nx+relativeY*ny);
+
+  // Ease bodies apart along the contact normal without turning their noses.
+  const correction=Math.max(0,depth-.12)*.47;
+  a.x-=nx*correction;a.y-=ny*correction;
+  b.x+=nx*correction;b.y+=ny*correction;
+  if(closing<=.75) return;
+
+  const inverseInertia=1/260;
   const armA=ra.x*ny-ra.y*nx,armB=rb.x*ny-rb.y*nx;
-  const impulse=closing*1.12/(2+(armA*armA+armB*armB)*inverseInertia);
-  const tangentX=-ny,tangentY=nx;
-  const slip=relativeX*tangentX+relativeY*tangentY;
-  const friction=Math.max(-impulse*.24,Math.min(impulse*.24,-slip*.44));
-  const ix=nx*impulse+tangentX*friction,iy=ny*impulse+tangentY*friction;
-  hitCar(a,ra,ix,iy,closing,inverseInertia);
-  hitCar(b,rb,-ix,-iy,closing,inverseInertia);
+  const impulse=closing*1.025/(2+(armA*armA+armB*armB)*inverseInertia);
+  const scrub=relativeX*tx+relativeY*ty;
+  const friction=Math.max(-impulse*.12,Math.min(impulse*.12,-scrub*.24));
+  const ix=nx*impulse+tx*friction,iy=ny*impulse+ty*friction;
+  hitCar(a,ra,-ix,-iy,closing,inverseInertia);
+  hitCar(b,rb,ix,iy,closing,inverseInertia);
 }
 
 function hitCar(car,arm,ix,iy,closing,inverseInertia){
   const priorSpeed=Math.hypot(car.vx,car.vy);
-  const alignment=Math.abs(ix*Math.cos(car.a)+iy*Math.sin(car.a))/Math.hypot(ix,iy);
-  // Different angles dissipate different amounts of speed from each chassis.
-  const loss=Math.min(.34,closing*(.00048+.00037*alignment));
-  car.vx+=ix;car.vy+=iy;
-  car.spin=Math.max(-6,Math.min(6,car.spin+(arm.x*iy-arm.y*ix)*inverseInertia));
-  const impactLimit=Math.max(priorSpeed*(1-loss),Math.min(49,closing*.34));
-  const speed=Math.hypot(car.vx,car.vy);
-  const factor=Math.min(1-loss*.26,impactLimit/Math.max(.01,speed));
-  car.vx*=factor;car.vy*=factor;
+  const loss=Math.min(.21,closing*.00065);
+  car.vx+=ix;
+  car.vy+=iy;
+  const torque=(arm.x*iy-arm.y*ix)*inverseInertia;
+  car.spin=Math.max(-2.8,Math.min(2.8,car.spin+torque));
+  // Dissipate speed without changing the direction established by the impact.
+  const limit=Math.max(priorSpeed*(1-loss),Math.min(62,closing*.35));
+  const scale=Math.min(1-loss*.25,limit/Math.max(.01,Math.hypot(car.vx,car.vy)));
+  car.vx*=scale;
+  car.vy*=scale;
 }

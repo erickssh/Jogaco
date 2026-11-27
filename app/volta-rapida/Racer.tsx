@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { onlineEnabled, supabaseBrowser } from "@/lib/supabase";
 import styles from "./racer.module.css";
@@ -9,7 +9,7 @@ const roomCode = /^[a-z0-9]{16}$/;
 const playerLimit = 4;
 const difficulties = ["facil", "medio", "dificil"] as const;
 type Difficulty = typeof difficulties[number];
-type Player = { pid: string; name: string; host: boolean; joinedAt: number };
+type Player = { pid: string; name: string; host: boolean; joinedAt: number; readyFor?: string };
 type Room = { code: string; me: Player };
 type Match = { id: string; startedAt: number; host: string; difficulty: Difficulty; fillBots: boolean; players: Player[] };
 type Result = { id: number; name: string; place: number; time: number | null };
@@ -33,7 +33,7 @@ function playerList(channel: RealtimeChannel) {
   return Object.entries(channel.presenceState<Player>()).flatMap(([key, entries]) => {
     const player = entries.find(entry => entry.pid === key && typeof entry.name === "string"
       && typeof entry.host === "boolean" && Number.isFinite(entry.joinedAt));
-    return player ? [{ pid: key, name: player.name.slice(0, 24), host: player.host, joinedAt: player.joinedAt }] : [];
+    return player ? [{ pid: key, name: player.name.slice(0, 24), host: player.host, joinedAt: player.joinedAt, readyFor: typeof player.readyFor === "string" ? player.readyFor : undefined }] : [];
   }).sort((a, b) => Number(b.host) - Number(a.host) || a.joinedAt - b.joinedAt || a.pid.localeCompare(b.pid));
 }
 
@@ -63,9 +63,22 @@ export function Racer({ invite }: { invite: string }) {
   const roster = useRef<Player[]>([]);
   const race = useRef<Match | null>(null);
   const latest = useRef<Snapshot | null>(null);
+  const readyFor = useRef<string | undefined>(undefined);
 
-  function post(type: string, payload: unknown) {
+  const post = useCallback((type: string, payload: unknown) => {
     port.current?.postMessage({ type, payload });
+  }, []);
+
+  async function confirmRematch(raceId: string) {
+    const ch = channel.current;
+    if (!room || !ch || race.current?.id !== raceId || readyFor.current === raceId) return;
+    readyFor.current = raceId;
+    const tracked = await ch.track({ ...room.me, readyFor: raceId });
+    if (race.current?.id !== raceId || channel.current !== ch) return;
+    if (tracked !== "ok") {
+      readyFor.current = undefined;
+      post("rematch-status", { accepted: false });
+    }
   }
 
   function connectFrame() {
@@ -87,6 +100,7 @@ export function Racer({ invite }: { invite: string }) {
         latest.current = data.payload;
         void channel.current?.send({ type: "broadcast", event: "state", payload: data.payload });
       }
+      if (data.type === "rematch") void confirmRematch(data.payload.raceId);
       if (data.type === "input" && !room.me.host) {
         void channel.current?.send({ type: "broadcast", event: "input", payload: { ...data.payload, pid: room.me.pid } });
       }
@@ -97,7 +111,7 @@ export function Racer({ invite }: { invite: string }) {
   useEffect(() => {
     const client = supabaseBrowser();
     if (!room || !client) return;
-    const ch = client.channel("volta-rapida-v1-" + room.code, {
+    const ch = client.channel("volta-rapida-v2-" + room.code, {
       config: { presence: { key: room.me.pid }, broadcast: { self: false } },
     });
     channel.current = ch;
@@ -124,6 +138,7 @@ export function Racer({ invite }: { invite: string }) {
           return;
         }
         race.current = match;
+        readyFor.current = undefined;
         latest.current = null;
         setNotice("");
         setResults(null);
@@ -144,7 +159,7 @@ export function Racer({ invite }: { invite: string }) {
     ch.subscribe(async status => {
       if (!current) return;
       if (status === "SUBSCRIBED") {
-        const tracked = await ch.track(room.me);
+        const tracked = await ch.track({ ...room.me, readyFor: readyFor.current });
         if (current) setNetwork(tracked === "ok" ? "connected" : "lost");
       } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED") {
         setNetwork("lost");
@@ -157,7 +172,7 @@ export function Racer({ invite }: { invite: string }) {
       port.current = null;
       void client.removeChannel(ch);
     };
-  }, [room]);
+  }, [room, post]);
 
   useEffect(() => {
     if (active) iframe.current?.focus();
@@ -186,23 +201,33 @@ export function Racer({ invite }: { invite: string }) {
     setNotice("");
     roster.current = [];
     race.current = null;
+    readyFor.current = undefined;
     latest.current = null;
     history.replaceState(null, "", location.pathname);
   }
 
-  function start() {
-    if (!room?.me.host || !frameReady || network !== "connected" || (active && !results)) return;
-    const grid = roster.current.filter(player => !player.host).slice(0, playerLimit - 1);
-    if (!grid.length) return;
+  const start = useCallback((guests: Player[]) => {
+    if (!room?.me.host || !frameReady || network !== "connected" || !guests.length) return;
     const match = { id: crypto.randomUUID(), startedAt: Date.now(), host: room.me.pid,
-      difficulty, fillBots, players: [room.me, ...grid] };
+      difficulty, fillBots, players: [room.me, ...guests] };
     race.current = match;
+    readyFor.current = undefined;
     latest.current = null;
     setResults(null);
     setNotice("");
     setActive(true);
     post("start", { match, host: true, id: 8 });
-  }
+  }, [room, frameReady, network, difficulty, fillBots, post]);
+
+  const rematchId = race.current?.id;
+  const rematchPlayers = players.filter(player => race.current?.players.some(racer => racer.pid === player.pid));
+  const confirmed = rematchPlayers.filter(player => player.readyFor === rematchId);
+  useEffect(() => {
+    // Check the latest race as well as the rendered state, since Presence can
+    // update again before React renders the new match.
+    if (!room?.me.host || !results || !latest.current?.results || rematchPlayers.length < 2) return;
+    if (confirmed.length === rematchPlayers.length) start(rematchPlayers.filter(player => !player.host));
+  }, [room, results, confirmed, rematchPlayers, start]);
 
   async function copy() {
     if (!room) return;
@@ -254,14 +279,19 @@ export function Racer({ invite }: { invite: string }) {
             <input type="checkbox" checked={fillBots} onChange={event => setFillBots(event.target.checked)} />
             Completar grid com bots
           </label>
-          <button className="btn gold" disabled={network !== "connected" || !frameReady || players.length < 2} onClick={start}>
-            {results ? "Nova corrida" : "Iniciar corrida"}
-          </button>
+          {!active && <button className="btn gold" disabled={network !== "connected" || !frameReady || players.length < 2}
+            onClick={() => start(roster.current.filter(player => !player.host).slice(0, playerLimit - 1))}>
+            Iniciar corrida
+          </button>}
         </>}
       </div>
       {!active && <p>{players.slice(0, playerLimit).map(player => player.name + (player.host ? " (anfitrião)" : "")).join(" · ")}</p>}
       {!active && players.length === 1 && room.me.host && <p>Envie o convite para começar.</p>}
       {status && <p role="status">{status}</p>}
+      {results && rematchPlayers.length >= 2 && <p role="status">
+        {confirmed.length} de {rematchPlayers.length} confirmaram a revanche.
+      </p>}
+      {results && rematchPlayers.length < 2 && <p>É preciso ter pelo menos dois pilotos na sala para jogar de novo.</p>}
       {results && <ol className={styles.results} aria-label="Resultado dos jogadores">
         {results.map(row => <li key={row.id}>{row.name} · {row.time === null ? "não concluiu" : row.place + "º lugar · " + row.time.toFixed(2).replace(".", ",") + " s"}</li>)}
       </ol>}
@@ -269,7 +299,7 @@ export function Racer({ invite }: { invite: string }) {
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {(solo || room) && <iframe
       key={room?.code ?? "solo"} ref={iframe} className={styles.game} hidden={!solo && !active}
-      title="Volta Rápida — Circuito do Bosque" src="/volta-rapida/index.html?v=online1" onLoad={connectFrame}
+      title="Volta Rápida — Circuito do Bosque" src="/volta-rapida/index.html?v=online2" onLoad={connectFrame}
     />}
   </>;
 }

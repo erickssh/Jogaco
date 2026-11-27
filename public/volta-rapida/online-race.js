@@ -8,6 +8,15 @@ const onlineRace = (() => {
   let inputSeq = 0, sentAt = 0, lastInput = '';
   let previousNotice = '', previousStandings = '';
   const standings = document.querySelector('#standings');
+  const rematchButton = document.querySelector('#online-again');
+  const rematchStatus = document.querySelector('#rematch-status');
+  rematchButton.onclick = () => {
+    if (!match || !done) return;
+    rematchButton.disabled = true;
+    rematchStatus.textContent = 'Aguardando a confirmação dos outros jogadores.';
+    rematchStatus.hidden = false;
+    send('rematch', { raceId: match.id });
+  };
   const remoteInputs = new Map();
 
   function send(type, payload) {
@@ -35,6 +44,9 @@ const onlineRace = (() => {
     setup.hidden = true;
     document.querySelector('.race-actions').hidden = true;
     document.querySelector('.result-actions').hidden = true;
+    document.querySelector('#online-result-actions').hidden = false;
+    rematchButton.disabled = false;
+    rematchStatus.hidden = true;
     receivedFrame = -1;
     frameNumber = 0;
     accumulator = 0;
@@ -156,6 +168,7 @@ const onlineRace = (() => {
       if (!remaining && !finalResults && !done && now - snapshotAt < 450) {
         driveCar(car, controls, dt);
         keepInsideMap(car);
+        keepOutsideRails(car);
         const signature = JSON.stringify(controls);
         if (now - sentAt > 250 || (signature !== lastInput && now - sentAt > 55)) {
           sentAt = now;
@@ -201,6 +214,11 @@ const onlineRace = (() => {
     port.onmessage = ({ data }) => {
       if (data.type === 'start') prepare(data.payload.match, data.payload.host, data.payload.id);
       if (data.type === 'snapshot' && !host) receiveSnapshot(data.payload);
+      if (data.type === 'rematch-status' && data.payload.accepted === false) {
+        rematchButton.disabled = false;
+        rematchStatus.textContent = 'A confirmação falhou. Tente de novo.';
+        rematchStatus.hidden = false;
+      }
       if (data.type === 'input' && host && data.payload.raceId === match?.id) {
         const input = data.payload;
         if (input.seq > (remoteInputs.get(input.id)?.seq ?? 0)) {

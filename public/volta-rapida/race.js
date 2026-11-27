@@ -24,7 +24,7 @@ const samplesPerLap=Math.ceil(TRACK.length/6);
 const sampleDistance=TRACK.length/samplesPerLap;
 const raceRoute=Array.from({length:samplesPerLap},(_,i)=>TRACK.pointAt(startDistance+i*sampleDistance));
 
-const gateCount=Math.ceil(TRACK.length/235);
+const gateCount=Math.ceil(TRACK.length/145);
 const gateSpacing=TRACK.length/gateCount;
 const raceGates=Array.from({length:gateCount},(_,i)=>TRACK.pointAt(startDistance+(i+1)*gateSpacing));
 
@@ -236,38 +236,63 @@ function refreshRacePosition(car){
   car.lane=TRACK.offsetAt(car.x,car.y);
 }
 
+function crossesSector(gate,oldX,oldY,x,y){
+  const shoulder=TRACK.halfWidth+74;
+  if(!crossesGate(gate,oldX,oldY,x,y,shoulder)) return false;
+  if(!gate.curvature) return true;
+
+  // A lawn detour can pass a normal sector gate. On the inside of a tight
+  // bend, stop the gate before the center of the turn so a cut cannot sweep
+  // through several sector gates at once.
+  const before=(oldX-gate.x)*gate.tx+(oldY-gate.y)*gate.ty;
+  const after=(x-gate.x)*gate.tx+(y-gate.y)*gate.ty;
+  const t=before/(before-after);
+  const offset=(oldX+(x-oldX)*t-gate.x)*gate.ty-(oldY+(y-oldY)*t-gate.y)*gate.tx;
+  const inside=-Math.sign(gate.curvature)*offset;
+  const insideLimit=Math.max(TRACK.halfWidth+8,1/Math.abs(gate.curvature)-20);
+  return inside<=insideLimit;
+}
+
 function advanceRaceGates(car,oldX,oldY,elapsed,dt){
   if(Number.isFinite(car.finishedAt)) return;
-  const gate=raceGates[car.checkpoint%gateCount];
+  const next=car.checkpoint%gateCount;
   const required=(car.checkpoint+1)*gateSpacing;
-  // Accept modest excursions at a checkpoint while excluding shortcuts
-  // across the infield or another leg of the circuit.
-  if(car.progress>required-120 && car.progress<required+120 &&
-     crossesGate(gate,oldX,oldY,car.x,car.y,TRACK.halfWidth+45)){
+  if(next<gateCount-1 && Math.abs(car.progress-required)<100 &&
+     crossesSector(raceGates[next],oldX,oldY,car.x,car.y)){
     car.checkpoint++;
     car.missedLap=false;
-    if(car.checkpoint===raceLaps*gateCount){
-      const before=(oldX-gate.x)*gate.tx+(oldY-gate.y)*gate.ty;
-      const after=(car.x-gate.x)*gate.tx+(car.y-gate.y)*gate.ty;
-      car.finishedAt=Math.max(0,elapsed-dt*after/(after-before));
-    }
   }
-  const activeLap=Math.floor(car.checkpoint/gateCount);
-  const lapLine=gate===raceGates[gateCount-1]?gate:grid;
-  const nearStart=Math.abs(circuitGap(car.progress,0))<100;
-  if(nearStart && car.progress>(activeLap+.85)*TRACK.length &&
-     crossesGate(lapLine,oldX,oldY,car.x,car.y,TRACK.halfWidth+45)){
-    // A driver who missed a gate can try the current lap again after the line.
-    car.checkpoint=activeLap*gateCount;
-    car.progress=activeLap*TRACK.length+circuitGap(car.progress,0);
-    car.missedLap=true;
+
+  if(crossesGate(grid,oldX,oldY,car.x,car.y,TRACK.halfWidth+74)){
+    const lap=Math.floor(car.checkpoint/gateCount);
+    if(next===gateCount-1){
+      car.checkpoint++;
+      car.progress=(lap+1)*TRACK.length;
+      car.missedLap=false;
+      if(car.checkpoint===raceLaps*gateCount){
+        const before=(oldX-grid.x)*grid.tx+(oldY-grid.y)*grid.ty;
+        const after=(car.x-grid.x)*grid.tx+(car.y-grid.y)*grid.ty;
+        car.finishedAt=Math.max(0,elapsed-dt*after/(after-before));
+      }
+    }else{
+      // Re-anchor at the real finish line even if a shortcut left the local
+      // projection behind. The skipped sectors still have to be driven.
+      const lapStart=lap*TRACK.length;
+      car.missedLap=car.missedLap || car.checkpoint>lap*gateCount || car.progress>lapStart+gateSpacing;
+      car.checkpoint=lap*gateCount;
+      car.progress=lapStart;
+    }
   }
   car.standing=Math.max(car.checkpoint*gateSpacing-30,
     Math.min((car.checkpoint+1)*gateSpacing-1,car.progress));
 }
 
 function advanceField(car,bots,controls,dt,elapsed){
-  advanceRacers([car,...bots],()=>controls,dt,elapsed);
+  const drivers=[car,...bots];
+  if(dt<=0) return;
+  const substeps=Math.ceil(dt*60);
+  const step=dt/substeps;
+  for(let i=0;i<substeps;i++) advanceRacers(drivers,()=>controls,step,elapsed-dt+(i+1)*step);
 }
 
 function advanceRacers(drivers,controlsFor,dt,elapsed){
@@ -282,6 +307,7 @@ function advanceRacers(drivers,controlsFor,dt,elapsed){
   }
   drivers.forEach((driver,i)=>{
     keepInsideMap(driver);
+    keepOutsideRails(driver);
     refreshRacePosition(driver);
     advanceRaceGates(driver,movement[i].x,movement[i].y,elapsed,dt);
   });

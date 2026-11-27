@@ -117,6 +117,24 @@ const startDistance = Math.abs(firstBend.sweep)*firstBend.radius + mapX(97.5)-fi
 const grid = TRACK.pointAt(startDistance);
 const gates = [1,2,3,4].map(n=>TRACK.pointAt(startDistance+TRACK.length*n/4));
 
+// Guardrails on the grass between adjacent legs. The same segments are
+// used by the painter, the scenery layout and the physics.
+const shortcutRails=[
+  [[1507,1110],[1536,953],[1573,833],[1692,704],[1825,650]],
+  [[887,2324],[780,2342],[670,2370],[645,2384]]
+];
+const railSegments=shortcutRails.flatMap(points=>points.slice(1).map(([bx,by],i)=>{
+  const [ax,ay]=points[i];
+  const dx=bx-ax,dy=by-ay;
+  return {ax,ay,dx,dy,lengthSquared:dx*dx+dy*dy};
+}));
+
+function railOffset(segment,x,y){
+  const {ax,ay,dx,dy,lengthSquared}=segment;
+  const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/lengthSquared));
+  return {x:x-ax-t*dx,y:y-ay-t*dy};
+}
+
 function crossesGate(gate, beforeX, beforeY, x, y, halfWidth=TRACK.halfWidth) {
   const before = (beforeX-gate.x)*gate.tx + (beforeY-gate.y)*gate.ty;
   const after = (x-gate.x)*gate.tx + (y-gate.y)*gate.ty;
