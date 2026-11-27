@@ -26,7 +26,6 @@ const raceRoute=Array.from({length:samplesPerLap},(_,i)=>TRACK.pointAt(startDist
 
 const gateCount=Math.ceil(TRACK.length/145);
 const gateSpacing=TRACK.length/gateCount;
-const raceGates=Array.from({length:gateCount},(_,i)=>TRACK.pointAt(startDistance+(i+1)*gateSpacing));
 
 function routeIndex(index){
   return ((index%samplesPerLap)+samplesPerLap)%samplesPerLap;
@@ -232,38 +231,44 @@ function opponentControls(bot,traffic,elapsed){
 }
 
 function refreshRacePosition(car){
+  car.previousProgress=car.progress;
   car.progress=measureRaceProgress(car.x,car.y,car.progress);
   car.lane=TRACK.offsetAt(car.x,car.y);
+  const local=raceRoute[routeIndex(Math.round(car.progress/sampleDistance))];
+  // After a spin or a detour inside a hairpin the local projection can stay
+  // on the incoming straight. Reacquire the nearest leg on returning to the
+  // asphalt. This only locates the car; it never credits missed sectors.
+  if(Math.abs(car.lane)<=TRACK.halfWidth &&
+     Math.hypot(car.x-local.x,car.y-local.y)>Math.abs(car.lane)+28){
+    let nearest=0,best=Infinity;
+    raceRoute.forEach((p,i)=>{
+      const d=(car.x-p.x)**2+(car.y-p.y)**2;
+      if(d<best){best=d;nearest=i;}
+    });
+    car.progress+=circuitGap(nearest*sampleDistance,car.progress);
+  }
 }
 
-function crossesSector(gate,oldX,oldY,x,y){
-  const shoulder=TRACK.halfWidth+74;
-  if(!crossesGate(gate,oldX,oldY,x,y,shoulder)) return false;
-  if(!gate.curvature) return true;
-
-  // A lawn detour can pass a normal sector gate. On the inside of a tight
-  // bend, stop the gate before the center of the turn so a cut cannot sweep
-  // through several sector gates at once.
-  const before=(oldX-gate.x)*gate.tx+(oldY-gate.y)*gate.ty;
-  const after=(x-gate.x)*gate.tx+(y-gate.y)*gate.ty;
-  const t=before/(before-after);
-  const offset=(oldX+(x-oldX)*t-gate.x)*gate.ty-(oldY+(y-oldY)*t-gate.y)*gate.tx;
-  const inside=-Math.sign(gate.curvature)*offset;
-  const insideLimit=Math.max(TRACK.halfWidth+8,1/Math.abs(gate.curvature)-20);
-  return inside<=insideLimit;
+// Credit an ordered sector anywhere along its exit corridor. A driver can
+// rejoin slightly downstream of the marker; skipping a whole leg leaves
+// the required sector behind and prevents further credit.
+function passedSector(car,required){
+  const beyond=car.progress-required;
+  if(beyond<0 || beyond>gateSpacing*1.5 || car.progress<=car.previousProgress) return false;
+  const nearest=raceRoute[routeIndex(Math.round(car.progress/sampleDistance))];
+  return Math.hypot(car.x-nearest.x,car.y-nearest.y)<=TRACK.halfWidth+140;
 }
 
 function advanceRaceGates(car,oldX,oldY,elapsed,dt){
   if(Number.isFinite(car.finishedAt)) return;
   const next=car.checkpoint%gateCount;
   const required=(car.checkpoint+1)*gateSpacing;
-  if(next<gateCount-1 && Math.abs(car.progress-required)<100 &&
-     crossesSector(raceGates[next],oldX,oldY,car.x,car.y)){
+  if(next<gateCount-1 && passedSector(car,required)){
     car.checkpoint++;
     car.missedLap=false;
   }
 
-  if(crossesGate(grid,oldX,oldY,car.x,car.y,TRACK.halfWidth+74)){
+  if(crossesGate(grid,oldX,oldY,car.x,car.y,TRACK.halfWidth+140)){
     const lap=Math.floor(car.checkpoint/gateCount);
     if(next===gateCount-1){
       car.checkpoint++;

@@ -103,6 +103,32 @@ function facingSpan(car,axes,nx,ny,tx,ty){
   return {min:center-half,max:center+half};
 }
 
+// Rear bumper contacts are a speed penalty in this arcade model. The front
+// driver keeps their line and the following driver can steer out of contact.
+function rearBumperContact(follower,leader,axes,along,lateral){
+  const leaderSpeed=leader.vx*axes[0].x+leader.vy*axes[0].y;
+  const followerSpeed=follower.vx*axes[0].x+follower.vy*axes[0].y;
+  if(along<21 || along<Math.abs(lateral)*1.08 || leaderSpeed < -4 || followerSpeed < -4) return false;
+
+  // Move the following nose just behind the bumper, never sideways. Use
+  // the projected chassis length because the striker may already be turning.
+  const frontReach=20+20*Math.abs(Math.cos(follower.a-leader.a))+10*Math.abs(Math.sin(follower.a-leader.a));
+  const overlap=Math.max(0,frontReach-along)+.1;
+  follower.x-=axes[0].x*overlap;
+  follower.y-=axes[0].y*overlap;
+  const closing=followerSpeed-leaderSpeed;
+  if(closing < -1) return true;
+  const frontLoss=Math.min(.065,.006+Math.max(0,closing)*.0003);
+  leader.vx*=1-frontLoss;
+  leader.vy*=1-frontLoss;
+  const separation=Math.min(32,5+.14*Math.max(0,closing)+.025*followerSpeed);
+  const target=Math.max(0,leaderSpeed*(1-frontLoss)-separation);
+  const scale=Math.min(1-frontLoss*2,target/Math.max(1,followerSpeed));
+  follower.vx*=scale;
+  follower.vy*=scale;
+  return true;
+}
+
 function carContact(a,b){
   const dx=b.x-a.x,dy=b.y-a.y;
   if(dx*dx+dy*dy>45*45) return;
@@ -121,6 +147,13 @@ function carContact(a,b){
       ny=axis.y*sign;
       plane=(a.x*nx+a.y*ny+ra+b.x*nx+b.y*ny-rb)/2;
     }
+  }
+
+  if(Math.cos(a.a-b.a)>.57){
+    const forward=dx*axesB[0].x+dy*axesB[0].y;
+    if(forward>0){
+      if(rearBumperContact(a,b,axesB,forward,dx*axesB[1].x+dy*axesB[1].y)) return;
+    }else if(rearBumperContact(b,a,axesA,-dx*axesA[0].x-dy*axesA[0].y,-dx*axesA[1].x-dy*axesA[1].y)) return;
   }
 
   const tx=-ny,ty=nx;
