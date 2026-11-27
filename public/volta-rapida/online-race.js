@@ -1,0 +1,215 @@
+/* A sala usa a mesma física da corrida solo. Só o anfitrião simula o pelotão. */
+const onlineRace = (() => {
+  const step = 1 / 60;
+  const duration = 180;
+  const idle = { throttle: 0, steer: 0, drift: false };
+  let port, match, host, ownId, field, frameNumber = 0, receivedFrame;
+  let startAt, lastSend, accumulator, snapshotAt, finalResults;
+  let inputSeq = 0, sentAt = 0, lastInput = '';
+  let previousNotice = '', previousStandings = '';
+  const standings = document.querySelector('#standings');
+  const remoteInputs = new Map();
+
+  function send(type, payload) {
+    port?.postMessage({ type, payload });
+  }
+
+  function prepare(nextMatch, isHost, id) {
+    match = nextMatch;
+    host = isHost;
+    ownId = id;
+    difficulty = match.difficulty;
+    reset();
+    const botCount = match.fillBots ? 8 - match.players.length : 0;
+    field = createOpponents(difficulty).slice(0, botCount);
+    match.players.forEach((player, i) => {
+      const id = 8 - i;
+      const slot = botCount + match.players.length - 1 - i;
+      field.push({ ...gridPosition(slot), id, spec: roadCar, name: player.name,
+        paint: id === 8 ? playerPaint : opponentPaint[id - 1] });
+    });
+    car = field.find(driver => driver.id === ownId);
+    bots = field.filter(driver => driver !== car);
+    camera.x = car.x;
+    camera.y = car.y;
+    setup.hidden = true;
+    document.querySelector('.race-actions').hidden = true;
+    document.querySelector('.result-actions').hidden = true;
+    receivedFrame = -1;
+    frameNumber = 0;
+    accumulator = 0;
+    lastSend = -Infinity;
+    snapshotAt = 0;
+    finalResults = null;
+    remoteInputs.clear();
+    startAt = performance.now() + 4500;
+    positionEl.textContent = (1 + bots.filter(driver => aheadInRace(driver, car)).length) + ' / ' + field.length;
+    previousStandings = '';
+    showStandings();
+    canvas.focus();
+  }
+
+  function results() {
+    return match.players.map((player, i) => {
+      const driver = field.find(entry => entry.id === 8 - i);
+      return { name: player.name, id: driver.id, place: 1 + field.filter(other => aheadInRace(other, driver)).length,
+        time: Number.isFinite(driver.finishedAt) ? driver.finishedAt : null };
+    }).sort((a, b) => a.place - b.place);
+  }
+
+  function updateHud(now, remaining) {
+    showStandings();
+    if (remaining > 0) {
+      const seconds = Math.ceil(remaining / 1000);
+      if (previousNotice !== String(seconds)) {
+        raceNotice.textContent = 'Largada em ' + seconds;
+        previousNotice = String(seconds);
+      }
+      raceNotice.hidden = false;
+      return;
+    }
+    updateRaceHud(now);
+    if (finalResults && !done) {
+      done = true;
+      document.querySelector('#result').textContent = 'Tempo limite atingido.';
+      finish.classList.add('show');
+    }
+    if (!raceNotice.hidden && car.missedLap) raceNotice.textContent = 'Volta incompleta. Siga a pista na próxima passagem.';
+  }
+
+  function showStandings() {
+    const order = [...field].sort((a, b) => aheadInRace(a, b) ? -1 : 1);
+    const signature = order.map(driver => driver.id).join(',');
+    if (signature === previousStandings) return;
+    previousStandings = signature;
+    const rows = order.map((driver, index) => {
+      const row = document.createElement('li');
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.backgroundColor = (driver.paint ?? playerPaint)[2];
+      const label = document.createElement('span');
+      label.className = 'driver';
+      label.textContent = (index + 1) + 'º ' + (driver.name || 'Bot ' + driver.id) + (driver === car ? ' (você)' : '');
+      if (driver === car) row.setAttribute('aria-current', 'true');
+      row.append(dot, label);
+      return row;
+    });
+    standings.querySelector('ol').replaceChildren(...rows);
+    standings.hidden = false;
+  }
+
+  function drawLabels(ctx, left, top, width, height) {
+    if (!field) return;
+    ctx.save();
+    const size = 12 * (window.devicePixelRatio || 1) / scale;
+    ctx.font = '700 ' + size + 'px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const driver of field) {
+      if (!driver.name || driver.x < left || driver.x > left + width || driver.y < top || driver.y > top + height) continue;
+      const label = driver === car ? driver.name + ' (você)' : driver.name;
+      const w = Math.min(ctx.measureText(label).width, size * 13) + size;
+      const y = driver.y - 25 - size / 2;
+      ctx.fillStyle = '#20312aee';
+      ctx.beginPath();
+      ctx.roundRect(driver.x - w / 2, y - size * .72, w, size * 1.44, size * .35);
+      ctx.fill();
+      ctx.strokeStyle = (driver.paint ?? playerPaint)[2];
+      ctx.lineWidth = size * .10;
+      ctx.stroke();
+      ctx.fillStyle = '#fff4df';
+      ctx.fillText(label, driver.x, y, w - size * .6);
+    }
+    ctx.restore();
+  }
+
+  function tick(dt, now) {
+    if (!match) return false;
+    const controls = raceControls();
+    if (host) {
+      const remaining = Math.max(0, startAt - now);
+      if (!remaining && !finalResults) {
+        accumulator += dt;
+        while (accumulator >= step) {
+          elapsed += step;
+          advanceRacers(field, driver => {
+            if (driver === car) return done ? idle : controls;
+            const input = remoteInputs.get(driver.id);
+            return input && now - input.at < 850 && !Number.isFinite(driver.finishedAt) ? input.controls : idle;
+          }, step, elapsed);
+          accumulator -= step;
+        }
+        if (elapsed >= duration || field.filter(driver => !driver.profile).every(driver => Number.isFinite(driver.finishedAt))) {
+          finalResults = results();
+        }
+      }
+      if (now - lastSend >= (finalResults ? 650 : 85)) {
+        lastSend = now;
+        const cars = field.map(({ id, x, y, a, vx, vy, spin, lane, progress, standing, finishedAt, checkpoint, drifting, missedLap }) =>
+          ({ id, x, y, a, vx, vy, spin, lane, progress, standing,
+            finishedAt: Number.isFinite(finishedAt) ? finishedAt : null, checkpoint, drifting, missedLap }));
+        send('snapshot', { match, frame: frameNumber++, cars, remaining, elapsed, results: finalResults });
+      }
+      updateHud(now, remaining);
+    } else if (snapshotAt) {
+      const remaining = Math.max(0, startAt - now);
+      if (!remaining && !finalResults && !done && now - snapshotAt < 450) {
+        driveCar(car, controls, dt);
+        keepInsideMap(car);
+        const signature = JSON.stringify(controls);
+        if (now - sentAt > 250 || (signature !== lastInput && now - sentAt > 55)) {
+          sentAt = now;
+          lastInput = signature;
+          send('input', { raceId: match.id, seq: ++inputSeq, controls });
+        }
+      }
+      if (!remaining && now - snapshotAt < 135 && !finalResults) {
+        for (const driver of bots) {
+          driver.x += driver.vx * dt;
+          driver.y += driver.vy * dt;
+        }
+      }
+      updateHud(now, remaining);
+    }
+    return true;
+  }
+
+  function receiveSnapshot(payload) {
+    if (!match || payload.match.id !== match.id || payload.frame <= receivedFrame) return;
+    receivedFrame = payload.frame;
+    snapshotAt = performance.now();
+    startAt = snapshotAt + payload.remaining;
+    elapsed = payload.elapsed;
+    finalResults = payload.results;
+    for (const state of payload.cars) {
+      const driver = field.find(entry => entry.id === state.id);
+      if (!driver) continue;
+      const { x, y, a } = driver;
+      Object.assign(driver, state, { finishedAt: state.finishedAt ?? Infinity });
+      if (driver === car && !payload.remaining && !finalResults && !done && Math.hypot(x - state.x, y - state.y) < 30) {
+        driver.x = state.x + (x - state.x) * .62;
+        driver.y = state.y + (y - state.y) * .62;
+        driver.a = state.a + angleBetween(a, state.a) * .62;
+      }
+    }
+  }
+
+  addEventListener('message', event => {
+    if (port || event.source !== parent || event.origin !== location.origin || event.data?.type !== 'vr-connect') return;
+    port = event.ports[0];
+    if (!port) return;
+    port.onmessage = ({ data }) => {
+      if (data.type === 'start') prepare(data.payload.match, data.payload.host, data.payload.id);
+      if (data.type === 'snapshot' && !host) receiveSnapshot(data.payload);
+      if (data.type === 'input' && host && data.payload.raceId === match?.id) {
+        const input = data.payload;
+        if (input.seq > (remoteInputs.get(input.id)?.seq ?? 0)) {
+          remoteInputs.set(input.id, { seq: input.seq, at: performance.now(), controls: input.controls });
+        }
+      }
+    };
+    send('connected');
+  });
+
+  return { tick, drawLabels };
+})();
