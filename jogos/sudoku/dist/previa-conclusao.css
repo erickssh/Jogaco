@@ -1,0 +1,11 @@
+.conclusion-preview { background: #ededed; min-height: 100dvh; padding: 24px 12px; }
+.preview-controls { text-align: center; margin: 0 auto 22px; max-width: 460px; }
+.preview-controls h1 { margin: 0; font-size: 20px; }
+.preview-controls p { font-size: 13px; color: var(--muted); }
+.preview-controls [role="group"] { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.preview-controls button { border-radius: 8px; padding: 7px 10px; font-size: 12px; }
+.preview-controls button[aria-pressed="true"] { background: #fff; border-color: var(--ink); font-weight: 700; }
+.conclusion-preview #win-dialog { position: relative; inset: auto; margin: 0 auto; max-width: 100%; box-shadow: 0 10px 45px #0001; }
+.preview-solution { max-width: 300px; margin: 0 auto; }
+.preview-solution .board { --size: 9; }
+.preview-solution button { margin-top: 10px; }

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lápis da abertura do Sudoku</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="previa-aberturas.css">
+  <style>
+    .preview-stage iframe { height: 600px; }
+    .pencil-color { width: 28px; height: 5px; border-radius: 3px; }
+    .pencil-color.azul { background: #355b7a; }
+    .pencil-color.amarelo { background: #e7a631; }
+    .pencil-color.grafite { background: #303c48; }
+  </style>
+</head>
+<body>
+  <main class="preview">
+    <header>
+      <h1>Lápis da abertura</h1>
+      <p>Escolha um modelo para ver como ele escreve o 7. Clique de novo para repetir.</p>
+    </header>
+    <div class="preview-layout">
+      <section class="preview-stage" aria-label="Prévia da abertura">
+        <iframe id="pencil-preview" src="index.html?lapis=azul" title="Animação de abertura do Sudoku" sandbox="allow-scripts" inert></iframe>
+      </section>
+      <section class="choices" aria-label="Modelos de lápis">
+        <button type="button" data-pencil="azul" aria-pressed="true"><span class="pencil-color azul" aria-hidden="true"></span><strong>1. Lápis azul</strong><span>Madeira aparente, metal prateado e borracha rosada.</span></button>
+        <button type="button" data-pencil="amarelo" aria-pressed="false"><span class="pencil-color amarelo" aria-hidden="true"></span><strong>2. Lápis amarelo</strong><span>Corpo amarelo clássico e acabamento dourado.</span></button>
+        <button type="button" data-pencil="grafite" aria-pressed="false"><span class="pencil-color grafite" aria-hidden="true"></span><strong>3. Lapiseira grafite</strong><span>Corpo escuro, clipe e apoio de metal na ponta.</span></button>
+      </section>
+    </div>
+  </main>
+  <script>
+    const preview = document.getElementById('pencil-preview');
+    const models = document.querySelectorAll('[data-pencil]');
+    for (const model of models) {
+      model.addEventListener('click', () => {
+        for (const button of models) {
+          button.setAttribute('aria-pressed', String(button === model));
+        }
+        preview.src = 'index.html?lapis=' + model.dataset.pencil;
+      });
+    }
+  </script>
+</body>
+</html>

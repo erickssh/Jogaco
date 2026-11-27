@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opções de abertura do Sudoku</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="previa-aberturas.css">
+  <script src="previa-aberturas.js" defer></script>
+</head>
+<body>
+  <main class="preview">
+    <header>
+      <p class="eyebrow">SUDOKU</p>
+      <h1>Escolha uma abertura</h1>
+      <p>Veja a animação e a transição para o jogo. Clique novamente para assistir quantas vezes quiser.</p>
+    </header>
+    <div class="preview-layout">
+      <section class="preview-stage" aria-label="Prévia do jogo">
+        <iframe id="game-preview" src="index.html" title="Sudoku" sandbox="allow-scripts"></iframe>
+        <div id="opening" class="opening" aria-label="Animação de abertura" hidden></div>
+      </section>
+      <section class="choices" aria-label="Opções de abertura">
+        <button data-option="0" aria-pressed="false"><strong>Atual</strong><span>O logo com os números aparece suavemente.</span><b>▶ Assistir</b></button>
+        <button data-option="1" aria-pressed="false"><strong>Opção 1 · Peças</strong><span>As peças deslizam até formar o tabuleiro.</span><b>▶ Assistir</b></button>
+        <button data-option="2" aria-pressed="false"><strong>Opção 2 · Traço</strong><span>O contorno e as linhas do tabuleiro surgem aos poucos.</span><b>▶ Assistir</b></button>
+        <button data-option="3" aria-pressed="false"><strong>Opção 3 · Descoberta</strong><span>Os números revelam o nome do jogo, um de cada vez.</span><b>▶ Assistir</b></button>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
