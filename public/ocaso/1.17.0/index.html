@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Gruta do Ocaso</title>
+    <link rel="stylesheet" href="style.css" />
+    <script defer src="game.js"></script>
+  </head>
+  <body>
+    <main id="menu">
+      <header class="hero">
+        <div class="hero-inner">
+          <p class="eyebrow">Battle royale · 4–12 jogadores</p>
+          <h1>Gruta do Ocaso</h1>
+          <p id="route-description">
+            Lanternas levam às provisões, garras marcam a trilha da Sentinela e cristais apontam o
+            atalho ao centro.
+          </p>
+        </div>
+      </header>
+      <section class="setup">
+        <div class="section-heading"><h2 id="atlas-title">Escolha o mapa</h2></div>
+        <div id="atlas" role="group" aria-labelledby="atlas-title"></div>
+        <div class="section-heading">
+          <h2>Escolha sua classe</h2>
+          <span>Partidas de até 15 min</span>
+        </div>
+        <div id="classes"></div>
+        <div id="kit"></div>
+        <div class="actions">
+          <button class="primary" id="quick-pvp">PvP rápido · 5 min</button>
+          <button id="train">Treinar com bots</button>
+          <button id="rooms">Jogar com amigos</button>
+        </div>
+        <p class="controls-note">
+          <kbd>WASD</kbd> mover <b>·</b> Mouse mirar e atacar <b>·</b> <kbd>Espaço</kbd> esquivar
+          <b>·</b> <kbd>Q E R</kbd> skills <b>·</b> <kbd>F</kbd> poção <b>·</b> <kbd>G</kbd> abrir
+          porta ou baú <b>·</b> <kbd>I</kbd> inventário <b>·</b> <kbd>M</kbd> mapa
+        </p>
+      </section>
+    </main>
+    <main id="online" hidden>
+      <div class="room-panel">
+        <p class="eyebrow">Multijogador</p>
+        <h1 id="roomtitle">Salão da gruta</h1>
+        <p id="roommap"></p>
+        <div id="entry">
+          <label
+            >Nome do aventureiro<input
+              id="alias"
+              maxlength="20"
+              value="Aventureiro"
+              autocomplete="off" /></label
+          ><button id="create" class="primary">Criar sala</button>
+          <div class="join">
+            <label
+              >Código da sala<input
+                id="code"
+                maxlength="6"
+                placeholder="A1B2C3"
+                autocomplete="off" /></label
+            ><button id="join">Entrar</button>
+          </div>
+        </div>
+        <div id="lobby" hidden>
+          <p>Compartilhe o código com quem estiver no mesmo site.</p>
+          <strong id="roomcode"></strong>
+          <p id="count"></p>
+          <ul id="members"></ul>
+          <button class="primary" id="start">Iniciar partida</button>
+        </div>
+        <p id="error" role="status"></p>
+        <button id="back">Voltar às classes</button>
+      </div>
+    </main>
+    <main id="arena" hidden>
+      <canvas
+        tabindex="0"
+        aria-label="Arena da Gruta do Ocaso, WASD para mover e mouse para mirar"
+      ></canvas>
+      <div class="topbar">
+        <div>
+          <strong id="phase"></strong><span id="alive"></span> <span id="region-name"></span>
+        </div>
+        <div class="timer" id="clock"></div>
+        <nav aria-label="Exploração">
+          <button id="mapbtn" aria-pressed="false">Mapa · M</button
+          ><button id="bagbtn" aria-expanded="false" aria-controls="inventory">
+            Inventário · I
+          </button>
+        </nav>
+        <button id="quit" title="Sair da partida" aria-label="Sair da partida">Sair</button>
+      </div>
+      <div id="toast" role="status"></div>
+      <button id="interact" class="primary" hidden></button>
+      <section id="inventory" aria-labelledby="bagtitle" hidden>
+        <div class="section-heading">
+          <h2 id="bagtitle">Inventário</h2>
+          <button id="closebag">Fechar</button>
+        </div>
+        <h3>Equipado</h3>
+        <div id="equipment"></div>
+        <h3 id="capacity">Mochila</h3>
+        <div id="baglist"></div>
+        <button id="drink">Beber poção · F</button>
+      </section>
+      <section id="levelpanel" aria-labelledby="leveltitle" hidden>
+        <div class="section-heading">
+          <h2 id="leveltitle">Escolha uma evolução</h2>
+          <button id="later">Depois</button>
+        </div>
+        <div id="offers"></div>
+      </section>
+      <div class="hud">
+        <div class="vitals">
+          <strong id="identity"></strong>
+          <div class="hp"><i id="health"></i></div>
+          <div class="xp"><i id="experience"></i></div>
+          <span id="items"></span>
+        </div>
+        <div class="hotkeys" id="keys"></div>
+        <button id="up" class="primary" hidden></button>
+      </div>
+      <div id="overlay" hidden>
+        <article>
+          <p class="eyebrow" id="outcomeTag"></p>
+          <h1 id="outcome"></h1>
+          <p id="summary"></p>
+          <button class="primary" id="return">Voltar às classes</button
+          ><button id="resume" hidden>Continuar jogando</button>
+        </article>
+      </div>
+    </main>
+  </body>
+</html>

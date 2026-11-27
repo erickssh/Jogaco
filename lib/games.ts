@@ -26,6 +26,22 @@ export type Game = {
 
 export const GAMES: Game[] = [
   {
+    slug: "gruta-do-ocaso",
+    title: "Gruta do Ocaso",
+    description: "Explore a caverna, monte sua build e seja o último a sobreviver.",
+    howTo: "Use WASD para mover, o mouse para mirar e atacar, e Q, E e R para usar habilidades. Crie uma sala para jogar com amigos ou treine contra bots.",
+    category: "Ação",
+    emoji: "🏮",
+    gradient: "linear-gradient(135deg,#192d34,#865335)",
+    kind: "proprio",
+    href: "/gruta-do-ocaso",
+    hideRecord: true,
+    semMoedas: true,
+    online: true,
+    scoreLabel: "",
+    coinsFor: () => 0,
+  },
+  {
     slug: "susdoku",
     title: "Susdoku",
     description: "O sudoku de detetive: descubra onde cada pessoa estava e quem foi o culpado.",
