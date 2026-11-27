@@ -76,3 +76,9 @@ o jogador, a vez e a legalidade do lance. O navegador só lê as partidas.
 ## Deploy
 
 Recomendado: [Vercel](https://vercel.com). Conecte o repositório do GitHub e clique em Deploy.
+
+## Volta Rápida 🏎️
+
+Em `/volta-rapida`, jogue sozinho contra sete bots ou abra **Jogar com amigos** e crie uma sala. Compartilhe o convite, aguarde pelo menos mais um jogador e inicie a corrida. São até quatro pessoas. O anfitrião escolhe se os bots completam o grid de oito carros. A classificação ao vivo e os nomes sobre os carros ajudam a identificar os pilotos. O anfitrião pode iniciar outra corrida ao final.
+
+O online usa as mesmas variáveis públicas do Supabase da Arena das Lendas e requer Realtime com canais públicos (Presence e Broadcast). Não há migração de banco nem chaves novas. O navegador do anfitrião simula a corrida, então ele deve manter a aba aberta durante a partida. Essas salas são casuais e não concedem moedas.

@@ -26,6 +26,22 @@ export type Game = {
 
 export const GAMES: Game[] = [
   {
+    slug: "volta-rapida",
+    title: "Volta Rápida",
+    description: "Dispute três voltas no Circuito do Bosque contra a máquina ou com amigos.",
+    howTo: "Use WASD para dirigir e Shift para derrapar. Crie uma sala e compartilhe o convite para jogar online.",
+    category: "Arcade",
+    emoji: "🏎️",
+    gradient: "linear-gradient(135deg,#3d6749,#a44536)",
+    kind: "proprio",
+    href: "/volta-rapida",
+    online: true,
+    hideRecord: true,
+    semMoedas: true,
+    scoreLabel: "",
+    coinsFor: () => 0,
+  },
+  {
     slug: "susdoku",
     title: "Susdoku",
     description: "O sudoku de detetive: descubra onde cada pessoa estava e quem foi o culpado.",
