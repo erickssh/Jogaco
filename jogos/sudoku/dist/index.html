@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#181818">
+  <meta name="description" content="Jogue Sudoku clássico, mini, gigante ou resolva o desafio do dia.">
+  <title>Sudoku</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="engine.js" defer></script>
+  <script src="sound.js" defer></script>
+  <script src="stats.js" defer></script>
+  <script src="ranking.js" defer></script>
+  <script src="conclusion.js" defer></script>
+  <script src="lapis-abertura.js" defer></script>
+  <script src="app.js" defer></script>
+  <script src="embed.js" defer></script>
+</head>
+<body>
+  <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></symbol>
+    <symbol id="i-quick-pencil" viewBox="0 0 24 24"><path d="m13 7 4 4M3 21l1-5L15 5l4 4L8 20l-5 1ZM19 1v4m-2-2h4M5 3v4M3 5h4"/></symbol>
+    <symbol id="i-erase" viewBox="0 0 24 24"><path d="m4 13 9-9a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-9 9H8l-4-4a3 3 0 0 1 0-4ZM9 8l9 9M12 21h9"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l1-6L16 3a2 2 0 0 1 3 0l2 2a2 2 0 0 1 0 3L10 19l-6 1Z"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M8 14a7 7 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-stats" viewBox="0 0 24 24"><path d="M4 20h16M6 16v-4m6 4V6m6 10v-7"/></symbol>
+  </defs></svg>
+  <main class="sudoku-game" aria-label="Sudoku">
+    <section id="game-intro" class="game-intro" aria-label="Sudoku">
+      <div class="intro-brand">
+        <svg class="intro-board" viewBox="0 0 100 100" aria-hidden="true">
+          <rect class="intro-frame" x="7" y="7" width="86" height="86" rx="12" pathLength="260"/>
+          <path class="intro-grid" d="M36 8v84M64 8v84M8 36h84M8 64h84" pathLength="120"/>
+          <defs>
+            <clipPath id="intro-pencil-board-clip">
+              <rect x="8" y="8" width="84" height="84" rx="11"/>
+            </clipPath>
+            <mask id="intro-seven-mask" maskUnits="userSpaceOnUse" x="42" y="41" width="16" height="18">
+              <path id="intro-seven-trace" d="M46 45.9H53.1C50.7 49.2 49.5 52 49 56.2" pathLength="1" fill="none" stroke="#fff" stroke-width="3.7" stroke-linejoin="round" stroke-linecap="butt" stroke-dasharray="1 1" stroke-dashoffset="1">
+                <animate attributeName="stroke-dashoffset" from="1" to="0" begin="1120ms" dur="440ms" fill="freeze"/>
+              </path>
+            </mask>
+            <filter id="intro-pencil-shadow" x="-35%" y="-25%" width="185%" height="165%" color-interpolation-filters="sRGB">
+              <feDropShadow dx="5.6" dy="6.8" stdDeviation="2.1" flood-color="#17212b" flood-opacity=".52"/>
+            </filter>
+            <filter id="intro-pencil-contact" x="-60%" y="-90%" width="220%" height="280%">
+              <feGaussianBlur stdDeviation=".75"/>
+            </filter>
+            <g id="intro-pencil-azul"></g>
+            <g id="intro-pencil-amarelo"></g>
+            <g id="intro-pencil-grafite"></g>
+          </defs>
+          <g class="intro-digits" text-anchor="middle">
+            <g class="intro-givens">
+              <text x="21.5" y="28">4</text><text x="50" y="28">1</text><text x="78.5" y="28">6</text>
+              <text x="21.5" y="56">2</text><text x="78.5" y="56">3</text>
+              <text x="21.5" y="84">5</text><text x="50" y="84">9</text><text x="78.5" y="84">8</text>
+            </g>
+            <text class="intro-seven" x="50" y="56" mask="url(#intro-seven-mask)">7</text>
+          </g>
+          <g clip-path="url(#intro-pencil-board-clip)">
+            <g class="intro-pencil" opacity="0">
+              <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;.18;.8;1" begin="980ms" dur="720ms" fill="freeze"/>
+              <animateMotion begin="980ms" dur="140ms" path="M41 42L46 45.9" fill="freeze"/>
+              <animateMotion id="intro-pencil-motion" begin="1120ms" dur="440ms" calcMode="paced" additive="replace" fill="freeze">
+                <mpath href="#intro-seven-trace"/>
+              </animateMotion>
+              <ellipse cx=".8" cy="1.25" rx="2.6" ry="1.35" fill="#19232d" opacity=".34" filter="url(#intro-pencil-contact)"/>
+              <g filter="url(#intro-pencil-shadow)">
+                <use id="intro-pencil-art" href="#intro-pencil-azul" transform="rotate(43) scale(1.65)"/>
+              </g>
+            </g>
+          </g>
+        </svg>
+        <span class="intro-wordmark">sudoku<span>.</span></span>
+      </div>
+      <div id="home-actions" class="home-actions" role="group" aria-label="Opções de jogo" inert>
+        <button type="button" class="primary" id="home-new">Novo jogo</button>
+        <button type="button" class="primary mode-button" id="home-continue" disabled><span>Continuar partida</span><span id="continue-details" class="continue-details" hidden></span></button>
+        <button type="button" class="primary mode-button" id="home-daily">Desafio diário</button>
+        <button type="button" class="primary mode-button" id="home-friend" hidden>Jogar desafio de amigo</button>
+      </div>
+    </section>
+    <section id="game-content" class="game-content" aria-label="Jogo de Sudoku" tabindex="-1" hidden inert>
+    <div class="game-layout" aria-label="Partida de Sudoku">
+      <div class="board-column">
+        <div class="game-status">
+          <span class="level-pill" id="level-label">Fácil</span>
+          <div class="status-right">
+            <span class="mistakes-label">Erros <b id="mistakes">0</b></span>
+            <span class="timer"><svg aria-hidden="true"><use href="#i-clock"/></svg><span id="time">00:00</span></span>
+            <button class="pause-button" id="pause" aria-label="Pausar jogo" title="Pausar jogo"><svg><use href="#i-pause"/></svg></button>
+            <button class="stats-button" id="stats" type="button" aria-haspopup="dialog"><svg aria-hidden="true"><use href="#i-stats"/></svg>Estatísticas</button>
+          </div>
+        </div>
+        <div class="board-wrap">
+          <div id="board-scroll" class="board-scroll">
+            <div id="board" class="board" role="grid" aria-label="Tabuleiro de Sudoku"></div>
+          </div>
+          <div id="board-cover" class="board-cover" inert aria-hidden="true">
+            <div class="pause-content">
+              <span class="cover-icon" aria-hidden="true"><svg><use href="#i-pause"/></svg></span>
+              <h2>Respire um pouco.</h2>
+              <p>Sua partida espera por você.</p>
+              <button class="primary" id="resume">Continuar jogo <svg><use href="#i-arrow"/></svg></button>
+              <button class="primary mode-button" id="new-game">Novo jogo</button>
+              <button class="primary mode-button" id="daily-game">Desafio diário</button>
+            </div>
+          </div>
+        </div>
+        <div class="board-bottom"><span id="challenge-target" hidden></span><span id="progress-text"></span></div>
+        <div class="progress-track"><div id="progress-bar"></div></div>
+      </div>
+      <div class="controls" role="group" aria-label="Controles da partida">
+        <div id="numpad" class="numpad" role="group" aria-label="Números e quantidades restantes"></div>
+        <div class="tools"><button id="quick-notes" title="Preencher todas as casas vazias com os candidatos possíveis" aria-label="Lápis rápido"><svg><use href="#i-quick-pencil"/></svg><span>Lápis rápido</span></button><button id="erase" title="Apagar (Delete)"><svg><use href="#i-erase"/></svg><span>Apagar</span></button><button id="notes" title="Anotações (N)" aria-pressed="false"><span class="note-badge" id="note-badge">OFF</span><svg><use href="#i-pencil"/></svg><span>Anotar</span></button><button id="hint" title="Revelar uma casa"><span class="hint-badge" id="hint-count">3</span><svg><use href="#i-bulb"/></svg><span>Dica</span></button></div>
+        <button class="secondary" id="share-board" hidden>Desafiar um amigo</button>
+        <button class="secondary" id="return-game" hidden>Voltar à partida livre</button>
+      </div>
+    </div>
+    <p class="mini-tutorial">Escolha um símbolo embaixo e clique na casa. No teclado, use as setas e digite <strong id="tutorial-symbols">1 a 9</strong>. Preencha cada linha, coluna e bloco <span id="tutorial-blocks">3 × 3</span> sem repetir. Use <strong>Anotar</strong> para marcar possibilidades ou <strong>Lápis rápido</strong> para anotar todas as casas vazias.<span class="scroll-tip"> Deslize o tabuleiro para ver todas as colunas.</span></p>
+    </section>
+    <div id="message" class="message" role="status" aria-live="polite"></div>
+  </main>
+  <dialog id="new-dialog" aria-labelledby="new-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Fechar">×</button></form>
+    <h2 id="new-title">Novo jogo</h2>
+    <div class="stats-views" role="group" aria-label="Tamanho do tabuleiro">
+      <button type="button" data-size="6" aria-pressed="false">Mini<br>6 × 6</button>
+      <button type="button" data-size="9" aria-pressed="true">Clássico<br>9 × 9</button>
+      <button type="button" data-size="16" aria-pressed="false">Gigante<br>16 × 16</button>
+    </div>
+    <div class="difficulty-options" id="new-levels" role="group" aria-label="Dificuldade">
+      <button data-level="easy" aria-pressed="true">Fácil</button>
+      <button data-level="medium" aria-pressed="false">Médio</button>
+      <button data-level="hard" aria-pressed="false">Difícil</button>
+      <button data-level="expert" aria-pressed="false">Experiente</button>
+    </div>
+    <button class="primary" id="start-game">Começar jogo</button>
+  </dialog>
+  <dialog id="share-dialog" aria-labelledby="share-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Fechar">×</button></form>
+    <h2 id="share-title">Desafiar um amigo</h2>
+    <p>O link abre o mesmo tabuleiro com o seu tempo como meta.</p>
+    <label class="field-label" for="share-link">Link do desafio</label>
+    <input class="field" id="share-link" readonly>
+    <button class="primary" id="copy-link">Copiar link</button>
+    <p id="share-status" role="status"></p>
+  </dialog>
+  <dialog id="stats-dialog" aria-labelledby="stats-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Fechar">×</button></form>
+    <h2 id="stats-title">Estatísticas</h2>
+    <div class="stats-views" role="group" aria-label="Tipo de estatística">
+      <button type="button" data-stats-view="personal" aria-pressed="true">Meu progresso</button>
+      <button type="button" data-stats-view="ranking" aria-pressed="false">Ranking</button>
+      <button type="button" data-stats-view="daily" aria-pressed="false">Desafio do dia</button>
+    </div>
+    <div id="stats-filters">
+      <label class="field-label" for="stats-size">Tabuleiro</label>
+      <select class="field" id="stats-size">
+        <option value="6">Mini 6 × 6</option>
+        <option value="9" selected>Clássico 9 × 9</option>
+        <option value="16">Gigante 16 × 16</option>
+      </select>
+      <div class="stats-levels" id="stats-levels" role="group" aria-label="Dificuldade">
+      <button type="button" data-stats-level="easy" aria-pressed="false">Fácil</button>
+      <button type="button" data-stats-level="medium" aria-pressed="false">Médio</button>
+      <button type="button" data-stats-level="hard" aria-pressed="false">Difícil</button>
+      <button type="button" data-stats-level="expert" aria-pressed="false">Experiente</button>
+      </div>
+    </div>
+    <dl id="personal-stats" class="stats-metrics" aria-live="polite" aria-atomic="true">
+      <div><dt>Melhor tempo</dt><dd id="best-time">—</dd></div>
+      <div><dt>Vitórias sem erros</dt><dd id="clean-wins">0</dd></div>
+    </dl>
+    <section id="ranking-panel" aria-label="Ranking de melhores tempos" hidden>
+      <p class="ranking-explainer" id="ranking-explainer"></p>
+      <div id="rank-entry">
+        <form id="ranking-form" class="ranking-form" hidden>
+          <p id="ranking-own-time"></p>
+          <label for="ranking-nickname">Nome no ranking</label>
+          <div>
+            <input id="ranking-nickname" name="nickname" required minlength="2" maxlength="20" autocomplete="off">
+            <button class="primary" type="submit" id="ranking-submit">Publicar</button>
+          </div>
+        </form>
+        <p id="ranking-publish-status" role="status" hidden></p>
+      </div>
+      <p id="ranking-status" role="status"></p>
+      <ol id="ranking-entries" class="ranking-entries" aria-label="Melhores tempos"></ol>
+    </section>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prévia da conclusão · Sudoku</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="previa-conclusao.css">
+  <script src="engine.js" defer></script>
+  <script src="conclusion.js" defer></script>
+  <script src="previa-conclusao.js" defer></script>
+</head>
+<body class="conclusion-preview">
+  <header class="preview-controls">
+    <h1>Prévia da conclusão</h1>
+    <p>Escolha um exemplo para ver a animação. Os resultados são fictícios.</p>
+    <div role="group" aria-label="Exemplos">
+      <button class="mode-button" data-example="three" type="button" aria-pressed="true">3 estrelas</button>
+      <button class="mode-button" data-example="two" type="button" aria-pressed="false">2 estrelas</button>
+      <button class="mode-button" data-example="one" type="button" aria-pressed="false">1 estrela</button>
+      <button class="mode-button" data-example="waiting" type="button" aria-pressed="false">Poucos resultados</button>
+    </div>
+  </header>
+  <section class="preview-solution" id="preview-solution" aria-label="Tabuleiro de exemplo" hidden>
+    <div class="board" id="preview-board" role="grid" aria-label="Sudoku concluído"></div>
+    <button class="primary mode-button" id="preview-back" type="button">Voltar à conclusão</button>
+  </section>
+</body>
+</html>
