@@ -65,6 +65,7 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 .standings .dot{width:8px;height:8px;border-radius:50%;flex:none}
 .standings .driver{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .standings .interval{margin-left:auto;white-space:nowrap;font-variant-numeric:tabular-nums;color:#eee2c5}
+.standings .lap-split{background:#ffe5a6;color:#283a29;font-weight:700;border-radius:3px;padding:1px 4px}
 .standings .watching .driver{text-decoration:underline;text-underline-offset:3px}
 #spectate{margin-top:10px}
 .spectator-bar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--frame);border-radius:8px;box-shadow:0 2px 8px #25362755}
@@ -147,9 +148,9 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 <script src="./crowd.js?v=29"></script>
 <script src="./terrace.js?v=30.1"></script>
 <script src="./vehicle.js?v=43"></script>
-<script src="./race.js?v=43"></script>
-<script src="./race-hud.js?v=43"></script>
-<script src="./online-race.js?v=6"></script>
+<script src="./race.js?v=44"></script>
+<script src="./race-hud.js?v=44"></script>
+<script src="./online-race.js?v=7"></script>
 <script>
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d',{alpha:false});
 const lapEl=document.querySelector('#lap'),timeEl=document.querySelector('#time');
@@ -223,7 +224,11 @@ function raceControls(){
 
 function update(dt,now){
   if(onlineRace.tick(dt,now))return;
-  if(raceClosed || !setup.hidden)return;
+  if(!setup.hidden)return;
+  if(raceClosed){
+    renderStandings(raceOrder([car,...bots]),now);
+    return;
+  }
   if(!start){
     if(!keys.w)return;
     start=now;

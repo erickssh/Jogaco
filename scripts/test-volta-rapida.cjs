@@ -7,7 +7,7 @@ const vm=require('node:vm');
 const gameRoot=path.join(__dirname,'../public/volta-rapida');
 const source=['circuit','vehicle','race'].map(name=>readFileSync(path.join(gameRoot,name+'.js'),'utf8')).join('\n');
 const game=vm.runInNewContext(source+
-  '\n;({TRACK,raceLaps,gateCount,gateSpacing,gridPosition,racePoint,refreshRacePosition,advanceRaceGates,updateIntervals,carContact,driveCar,roadCar})',
+  '\n;({TRACK,raceLaps,gateCount,gateSpacing,gridPosition,racePoint,refreshRacePosition,advanceRaceGates,recordPassage,updateIntervals,carContact,driveCar,roadCar})',
   {Path2D:class{moveTo(){} lineTo(){} arc(){} closePath(){}}});
 
 function move(car,point,time){
@@ -64,17 +64,54 @@ test('Glancing contact with the wheel held cannot reverse steering',()=>{
   }
 });
 
-test('Intervals use the preceding driver at the same point, including a finished leader',()=>{
-  const gate=game.gateSpacing;
-  const driver=(id,standing,passageTimes)=>({...game.gridPosition(0),id,standing,passageTimes});
-  const first=driver(1,game.TRACK.length*game.raceLaps,[0,1,2,3,4,5]);
-  first.finishedAt=7.5;
-  const second=driver(2,4.5*gate,[0,2,4,6,8]);
-  const third=driver(3,2.5*gate,[0,3,6]);
-  game.updateIntervals([third,first,second],9);
-  assert.equal(first.gap,null);
-  assert.equal(second.gap,4.5);
-  assert.equal(third.gap,4);
+test('Fast legal lines with tyres riding the kerb complete the entire lap',()=>{
+  const length=game.TRACK.length;
+  for(const [from,to,lane] of [[450,1070,-86],[550,1310,0],[650,1270,86]]){
+    const car=game.gridPosition(0);
+    trace(car,-26,from,()=>lane);
+    const a=game.racePoint(from,lane),b=game.racePoint(to,lane);
+    let maxDepth=0;
+    for(let i=1;i<=140;i++){
+      move(car,{x:a.x+(b.x-a.x)*i/140,y:a.y+(b.y-a.y)*i/140},(from+(to-from)*i/140+30)/300);
+      maxDepth=Math.max(maxDepth,Math.abs(car.lane)-game.TRACK.halfWidth);
+    }
+    trace(car,to,length+6,()=>lane);
+    assert(maxDepth>8 && maxDepth<11);
+    assert.equal(car.checkpoint,game.gateCount);
+    assert(car.lastLapTime>0);
+  }
+});
+
+test('Gaps reflect the preceding driver’s actual movement, stops, and finishing time',()=>{
+  const makeDriver=id=>({...game.gridPosition(0),id,standing:0,motionHistory:[]});
+  const leader=makeDriver(1),second=makeDriver(2),third=makeDriver(3);
+  for(let n=0;n<=80;n++){
+    const time=n/10;
+    leader.standing=Math.min(600,100*time);
+    second.standing=time<=2?100*time:time<=4?200:200+75*(time-4);
+    third.standing=Math.max(0,(time-4.5)*100);
+    if(time<=6) game.recordPassage(leader,time);
+    game.recordPassage(second,time);
+    game.recordPassage(third,time);
+  }
+  leader.finishedAt=6;
+  game.updateIntervals([third,second,leader],8);
+  assert.equal(leader.gap,null);
+  assert(Math.abs(second.gap-3)<.001); // leader passed 500 at 5 s
+  assert(Math.abs(third.gap-2)<.001);  // second passed 350 at 6 s
+  assert.equal(third.gapTo,second.id);
+  // Park at 350 for three seconds. Waiting in place cannot change a measured split.
+  game.recordPassage(third,11);
+  game.updateIntervals([leader,second,third],11);
+  assert(Math.abs(third.gap-2)<.01);
+  const arriving=makeDriver(4);
+  arriving.standing=199;
+  game.recordPassage(arriving,8);
+  game.updateIntervals([leader,second,arriving],8);
+  assert(Math.abs(arriving.gap-6.01)<.02); // arrival just before the stop
+  arriving.standing=201;
+  game.updateIntervals([leader,second,arriving],8);
+  assert(Math.abs(arriving.gap-(4-1/75))<.12); // passage after departure
 });
 
 test('Lap and finish times use the fraction of the tick when the car crosses',()=>{
