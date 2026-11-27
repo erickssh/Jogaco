@@ -90,19 +90,6 @@ function projectionRadius(axes,x,y){
   return axes.reduce((span,axis)=>span+axis.half*Math.abs(axis.x*x+axis.y*y),0);
 }
 
-// The leading feature is an edge for square impacts and a corner for a
-// glancing impact. Project it onto the tangent to find the actual lever arm.
-function facingSpan(car,axes,nx,ny,tx,ty){
-  let center=car.x*tx+car.y*ty,half=0;
-  for(const axis of axes){
-    const toward=axis.x*nx+axis.y*ny;
-    const span=axis.half*(axis.x*tx+axis.y*ty);
-    if(Math.abs(toward)<.025) half+=Math.abs(span);
-    else center+=Math.sign(toward)*span;
-  }
-  return {min:center-half,max:center+half};
-}
-
 // Counter immediate position corrections in the renderer. Race progress,
 // collisions and speed still use the actual simulation state.
 function smoothCarCorrection(car,dx,dy,angle=0,limit=24){
@@ -126,7 +113,7 @@ function separateCar(car,dx,dy){
 function rearBumperContact(follower,leader,axes,followingAxes,along,lateral){
   const leaderSpeed=leader.vx*axes[0].x+leader.vy*axes[0].y;
   const followerSpeed=follower.vx*axes[0].x+follower.vy*axes[0].y;
-  if(along<21 || along<Math.abs(lateral)*1.08 || leaderSpeed < -4 || followerSpeed < -4) return false;
+  if(along<17 || along<Math.abs(lateral)*.86 || leaderSpeed < -4 || followerSpeed < -4) return false;
 
   // Move the following car just far enough along the leader's heading to
   // clear the overlap on one separating axis.
@@ -155,10 +142,11 @@ function rearBumperContact(follower,leader,axes,followingAxes,along,lateral){
 }
 
 function carContact(a,b){
+  if(Number.isFinite(a.finishedAt) || Number.isFinite(b.finishedAt)) return;
   const dx=b.x-a.x,dy=b.y-a.y;
   if(dx*dx+dy*dy>45*45) return;
   const axesA=carAxes(a),axesB=carAxes(b);
-  let depth=Infinity,nx=0,ny=0,plane=0;
+  let depth=Infinity,nx=0,ny=0;
   for(const axis of [...axesA,...axesB]){
     const along=dx*axis.x+dy*axis.y;
     const ra=projectionRadius(axesA,axis.x,axis.y);
@@ -170,53 +158,43 @@ function carContact(a,b){
       const sign=along>=0?1:-1;
       nx=axis.x*sign;
       ny=axis.y*sign;
-      plane=(a.x*nx+a.y*ny+ra+b.x*nx+b.y*ny-rb)/2;
     }
   }
 
-  if(Math.cos(a.a-b.a)>.57){
+  if(Math.cos(a.a-b.a)>.38){
     const forward=dx*axesB[0].x+dy*axesB[0].y;
     if(forward>0){
       if(rearBumperContact(a,b,axesB,axesA,forward,dx*axesB[1].x+dy*axesB[1].y)) return;
     }else if(rearBumperContact(b,a,axesA,axesB,-dx*axesA[0].x-dy*axesA[0].y,-dx*axesA[1].x-dy*axesA[1].y)) return;
   }
 
-  const tx=-ny,ty=nx;
-  const faceA=facingSpan(a,axesA,nx,ny,tx,ty);
-  const faceB=facingSpan(b,axesB,-nx,-ny,tx,ty);
-  const tangent=(Math.max(faceA.min,faceB.min)+Math.min(faceA.max,faceB.max))/2;
-  const x=nx*plane+tx*tangent,y=ny*plane+ty*tangent;
-  const ra={x:x-a.x,y:y-a.y},rb={x:x-b.x,y:y-b.y};
-  const relativeX=b.vx-a.vx-b.spin*rb.y+a.spin*ra.y;
-  const relativeY=b.vy-a.vy+b.spin*rb.x-a.spin*ra.x;
-  const closing=-(relativeX*nx+relativeY*ny);
-
-  // Ease bodies apart along the contact normal without turning their noses.
-  const correction=Math.max(0,depth-.12)*.47;
+  const closing=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+  const correction=Math.max(0,depth-.12)*.5;
   separateCar(a,-nx*correction,-ny*correction);
   separateCar(b,nx*correction,ny*correction);
-  if(closing<=.75) return;
+  if(closing<=0) return;
 
-  const inverseInertia=1/260;
-  const armA=ra.x*ny-ra.y*nx,armB=rb.x*ny-rb.y*nx;
-  const impulse=closing*1.025/(2+(armA*armA+armB*armB)*inverseInertia);
-  const scrub=relativeX*tx+relativeY*ty;
-  const friction=Math.max(-impulse*.12,Math.min(impulse*.12,-scrub*.24));
-  const ix=nx*impulse+tx*friction,iy=ny*impulse+ty*friction;
-  hitCar(a,ra,-ix,-iy,closing,inverseInertia);
-  hitCar(b,rb,ix,iy,closing,inverseInertia);
+  // Match normal speeds without a rebound. Tangential travel continues
+  // along the other car and each driver's steering still controls yaw.
+  const impulse=closing*.5;
+  const loss=Math.min(.16,closing*.00055);
+  slideAlongCar(a,-nx*impulse,-ny*impulse,loss);
+  slideAlongCar(b,nx*impulse,ny*impulse,loss);
 }
 
-function hitCar(car,arm,ix,iy,closing,inverseInertia){
-  const priorSpeed=Math.hypot(car.vx,car.vy);
-  const loss=Math.min(.21,closing*.00065);
+function slideAlongCar(car,ix,iy,loss){
+  const speed=Math.hypot(car.vx,car.vy);
+  const fx=Math.cos(car.a),fy=Math.sin(car.a);
+  const forward=car.vx*fx+car.vy*fy;
   car.vx+=ix;
   car.vy+=iy;
-  const torque=(arm.x*iy-arm.y*ix)*inverseInertia;
-  car.spin=Math.max(-2.8,Math.min(2.8,car.spin+torque));
-  // Dissipate speed without changing the direction established by the impact.
-  const limit=Math.max(priorSpeed*(1-loss),Math.min(62,closing*.35));
-  const scale=Math.min(1-loss*.25,limit/Math.max(.01,Math.hypot(car.vx,car.vy)));
+  const after=car.vx*fx+car.vy*fy;
+  if(forward>=0 && after<0){
+    car.vx-=after*fx;
+    car.vy-=after*fy;
+  }
+  const limit=Math.max(speed*(1-loss),Math.min(55,Math.hypot(ix,iy)));
+  const scale=Math.min(1-loss,limit/Math.max(.01,Math.hypot(car.vx,car.vy)));
   car.vx*=scale;
   car.vy*=scale;
 }

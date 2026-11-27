@@ -6,8 +6,7 @@ const onlineRace = (() => {
   let port, match, host, ownId, field, frameNumber = 0, receivedFrame;
   let startAt, lastSend, accumulator, snapshotAt, finalResults;
   let inputSeq = 0, sentAt = 0, lastInput = '';
-  let previousNotice = '', previousStandings = '';
-  const standings = document.querySelector('#standings');
+  let previousNotice = '';
   const rematchButton = document.querySelector('#online-again');
   const rematchStatus = document.querySelector('#rematch-status');
   rematchButton.onclick = () => {
@@ -56,8 +55,9 @@ const onlineRace = (() => {
     remoteInputs.clear();
     startAt = performance.now() + 4500;
     positionEl.textContent = (1 + bots.filter(driver => aheadInRace(driver, car)).length) + ' / ' + field.length;
-    previousStandings = '';
-    showStandings();
+    previousNotice = lastInput = '';
+    sentAt = -Infinity;
+    renderStandings(raceOrder(field), 0);
     canvas.focus();
   }
 
@@ -70,7 +70,6 @@ const onlineRace = (() => {
   }
 
   function updateHud(now, remaining) {
-    showStandings();
     if (remaining > 0) {
       const seconds = Math.ceil(remaining / 1000);
       if (previousNotice !== String(seconds)) {
@@ -80,34 +79,8 @@ const onlineRace = (() => {
       raceNotice.hidden = false;
       return;
     }
-    updateRaceHud(now);
-    if (finalResults && !done) {
-      done = true;
-      document.querySelector('#result').textContent = 'Tempo limite atingido.';
-      finish.classList.add('show');
-    }
-    if (!raceNotice.hidden && car.missedLap) raceNotice.textContent = 'Volta incompleta. Siga a pista na próxima passagem.';
-  }
-
-  function showStandings() {
-    const order = [...field].sort((a, b) => aheadInRace(a, b) ? -1 : 1);
-    const signature = order.map(driver => driver.id).join(',');
-    if (signature === previousStandings) return;
-    previousStandings = signature;
-    const rows = order.map((driver, index) => {
-      const row = document.createElement('li');
-      const dot = document.createElement('span');
-      dot.className = 'dot';
-      dot.style.backgroundColor = (driver.paint ?? playerPaint)[2];
-      const label = document.createElement('span');
-      label.className = 'driver';
-      label.textContent = (index + 1) + 'º ' + (driver.name || 'Bot ' + driver.id) + (driver === car ? ' (você)' : '');
-      if (driver === car) row.setAttribute('aria-current', 'true');
-      row.append(dot, label);
-      return row;
-    });
-    standings.querySelector('ol').replaceChildren(...rows);
-    standings.hidden = false;
+    const clock = host || raceClosed ? elapsed : elapsed + Math.min(.15, (now - snapshotAt) / 1000);
+    updateRaceHud(now, clock);
   }
 
   function drawLabels(ctx, local, opponents, left, top, width, height) {
@@ -140,7 +113,7 @@ const onlineRace = (() => {
     const controls = raceControls();
     if (host) {
       const remaining = Math.max(0, startAt - now);
-      if (!remaining && !finalResults) {
+      if (!remaining && !raceClosed) {
         accumulator += dt;
         while (accumulator >= step) {
           elapsed += step;
@@ -151,37 +124,47 @@ const onlineRace = (() => {
           }, step, elapsed);
           accumulator -= step;
         }
-        if (elapsed >= duration || field.filter(driver => !driver.profile).every(driver => Number.isFinite(driver.finishedAt))) {
+        collectIntervals(field, elapsed);
+        raceClosed = elapsed >= duration || field.every(driver => Number.isFinite(driver.finishedAt));
+        if (!finalResults && (raceClosed || field.filter(driver => !driver.profile).every(driver => Number.isFinite(driver.finishedAt)))) {
           finalResults = results();
         }
       }
-      if (now - lastSend >= (finalResults ? 650 : 85)) {
+      if (now - lastSend >= (raceClosed ? 250 : 85)) {
         lastSend = now;
-        const cars = field.map(({ id, x, y, a, vx, vy, spin, lane, progress, standing, finishedAt, checkpoint, drifting, missedLap }) =>
+        const cars = field.map(({ id, x, y, a, vx, vy, spin, lane, progress, standing, finishedAt, checkpoint, drifting, missedLap, cutLap, gap, lapStartedAt, lapEndedAt, lastLapTime }) =>
           ({ id, x, y, a, vx, vy, spin, lane, progress, standing,
-            finishedAt: Number.isFinite(finishedAt) ? finishedAt : null, checkpoint, drifting, missedLap }));
-        send('snapshot', { match, frame: frameNumber++, cars, remaining, elapsed, results: finalResults });
+            finishedAt: Number.isFinite(finishedAt) ? finishedAt : null, checkpoint, drifting, missedLap, cutLap, gap, lapStartedAt, lapEndedAt, lastLapTime }));
+        send('snapshot', { match, frame: frameNumber++, cars, remaining, elapsed, raceClosed, results: finalResults });
       }
       updateHud(now, remaining);
     } else if (snapshotAt) {
       const remaining = Math.max(0, startAt - now);
-      if (!remaining && !finalResults && !done && now - snapshotAt < 450) {
-        driveCar(car, controls, dt);
-        keepInsideMap(car);
-        keepOutsideRails(car);
+      if (!remaining && !raceClosed && now - snapshotAt < 450 && !done) {
         const signature = JSON.stringify(controls);
-        if (now - sentAt > 250 || (signature !== lastInput && now - sentAt > 55)) {
+        if (now - sentAt > 250 || signature !== lastInput) {
           sentAt = now;
           lastInput = signature;
           send('input', { raceId: match.id, seq: ++inputSeq, controls });
         }
       }
-      if (!remaining && now - snapshotAt < 135 && !finalResults) {
-        for (const driver of bots) {
-          driver.x += driver.vx * dt;
-          driver.y += driver.vy * dt;
+      if (!remaining && !raceClosed && now - snapshotAt < 135) {
+        const count = Math.max(1, Math.ceil(dt / step));
+        for (let i = 0; i < count; i++) {
+          const slice = dt / count;
+          // Predict contact against moving cars too, so the guest cannot
+          // drive through a rival between authoritative host snapshots.
+          for (const driver of bots) {
+            driver.x += driver.vx * slice;
+            driver.y += driver.vy * slice;
+          }
+          driveCar(car, done ? idle : controls, slice);
+          for (const driver of bots) carContact(car, driver);
+          keepInsideMap(car);
+          keepOutsideRails(car);
         }
       }
+
       updateHud(now, remaining);
     }
     return true;
@@ -196,6 +179,7 @@ const onlineRace = (() => {
     startAt = snapshotAt + payload.remaining;
     elapsed = payload.elapsed;
     finalResults = payload.results;
+    raceClosed = payload.raceClosed ?? Boolean(finalResults);
     for (const state of payload.cars) {
       const driver = field.find(entry => entry.id === state.id);
       if (!driver) continue;
