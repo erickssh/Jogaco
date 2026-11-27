@@ -110,16 +110,16 @@ const onlineRace = (() => {
     standings.hidden = false;
   }
 
-  function drawLabels(ctx, left, top, width, height) {
+  function drawLabels(ctx, local, opponents, left, top, width, height) {
     if (!field) return;
     ctx.save();
     const size = 12 * (window.devicePixelRatio || 1) / scale;
     ctx.font = '700 ' + size + 'px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const driver of field) {
+    for (const driver of [local,...opponents]) {
       if (!driver.name || driver.x < left || driver.x > left + width || driver.y < top || driver.y > top + height) continue;
-      const label = driver === car ? driver.name + ' (você)' : driver.name;
+      const label = driver === local ? driver.name + ' (você)' : driver.name;
       const w = Math.min(ctx.measureText(label).width, size * 13) + size;
       const y = driver.y - 25 - size / 2;
       ctx.fillStyle = '#20312aee';
@@ -189,8 +189,10 @@ const onlineRace = (() => {
 
   function receiveSnapshot(payload) {
     if (!match || payload.match.id !== match.id || payload.frame <= receivedFrame) return;
+    const now = performance.now();
+    const smooth = snapshotAt > 0 && now - snapshotAt < 500 && !payload.remaining;
     receivedFrame = payload.frame;
-    snapshotAt = performance.now();
+    snapshotAt = now;
     startAt = snapshotAt + payload.remaining;
     elapsed = payload.elapsed;
     finalResults = payload.results;
@@ -199,10 +201,11 @@ const onlineRace = (() => {
       if (!driver) continue;
       const { x, y, a } = driver;
       Object.assign(driver, state, { finishedAt: state.finishedAt ?? Infinity });
-      if (driver === car && !payload.remaining && !finalResults && !done && Math.hypot(x - state.x, y - state.y) < 30) {
-        driver.x = state.x + (x - state.x) * .62;
-        driver.y = state.y + (y - state.y) * .62;
-        driver.a = state.a + angleBetween(a, state.a) * .62;
+      if (smooth) {
+        // Keep the last drawn pose while applying the host state immediately.
+        smoothCarCorrection(driver, state.x - x, state.y - y, angleBetween(state.a, a), 90);
+      } else {
+        driver.viewOffsetX = driver.viewOffsetY = driver.viewOffsetAngle = 0;
       }
     }
   }

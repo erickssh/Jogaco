@@ -144,6 +144,15 @@ function paintCircuit(ctx,startingSlots=[]) {
 
 const playerPaint=['#ad403c','#ef7e64','#ff9a79','#702c2e','#ffd3ae'];
 
+function carView(car,decay){
+  const dx=car.viewOffsetX??0,dy=car.viewOffsetY??0;
+  const angle=car.viewOffsetAngle??0;
+  car.viewOffsetX=dx*decay;
+  car.viewOffsetY=dy*decay;
+  car.viewOffsetAngle=angle*decay;
+  return {x:car.x+dx,y:car.y+dy,a:car.a+angle,paint:car.paint,name:car.name,lane:car.lane};
+}
+
 function paintCar(ctx, car) {
   const [shade,bright,highlight,trim,stripe]=car.paint??playerPaint;
   const body=new Path2D();

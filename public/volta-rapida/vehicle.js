@@ -103,19 +103,44 @@ function facingSpan(car,axes,nx,ny,tx,ty){
   return {min:center-half,max:center+half};
 }
 
+// Counter immediate position corrections in the renderer. Race progress,
+// collisions and speed still use the actual simulation state.
+function smoothCarCorrection(car,dx,dy,angle=0,limit=24){
+  const x=(car.viewOffsetX??0)-dx;
+  const y=(car.viewOffsetY??0)-dy;
+  const cap=limit/Math.max(limit,Math.hypot(x,y));
+  car.viewOffsetX=x*cap;
+  car.viewOffsetY=y*cap;
+  car.viewOffsetAngle=Math.max(-.75,Math.min(.75,(car.viewOffsetAngle??0)-angle));
+}
+
+function separateCar(car,dx,dy){
+  if(dx===0 && dy===0) return;
+  car.x+=dx;
+  car.y+=dy;
+  smoothCarCorrection(car,dx,dy);
+}
+
 // Rear bumper contacts are a speed penalty in this arcade model. The front
 // driver keeps their line and the following driver can steer out of contact.
-function rearBumperContact(follower,leader,axes,along,lateral){
+function rearBumperContact(follower,leader,axes,followingAxes,along,lateral){
   const leaderSpeed=leader.vx*axes[0].x+leader.vy*axes[0].y;
   const followerSpeed=follower.vx*axes[0].x+follower.vy*axes[0].y;
   if(along<21 || along<Math.abs(lateral)*1.08 || leaderSpeed < -4 || followerSpeed < -4) return false;
 
-  // Move the following nose just behind the bumper, never sideways. Use
-  // the projected chassis length because the striker may already be turning.
-  const frontReach=20+20*Math.abs(Math.cos(follower.a-leader.a))+10*Math.abs(Math.sin(follower.a-leader.a));
-  const overlap=Math.max(0,frontReach-along)+.1;
-  follower.x-=axes[0].x*overlap;
-  follower.y-=axes[0].y*overlap;
+  // Move the following car just far enough along the leader's heading to
+  // clear the overlap on one separating axis.
+  const forward=axes[0];
+  const dx=leader.x-follower.x,dy=leader.y-follower.y;
+  let clearance=Infinity;
+  for(const axis of [...axes,...followingAxes]){
+    const rate=forward.x*axis.x+forward.y*axis.y;
+    if(Math.abs(rate)<.001) continue;
+    const span=projectionRadius(axes,axis.x,axis.y)+projectionRadius(followingAxes,axis.x,axis.y);
+    const gap=(dx*axis.x+dy*axis.y)*Math.sign(rate);
+    clearance=Math.min(clearance,(span-gap)/Math.abs(rate));
+  }
+  separateCar(follower,-forward.x*(clearance+.1),-forward.y*(clearance+.1));
   const closing=followerSpeed-leaderSpeed;
   if(closing < -1) return true;
   const frontLoss=Math.min(.065,.006+Math.max(0,closing)*.0003);
@@ -152,8 +177,8 @@ function carContact(a,b){
   if(Math.cos(a.a-b.a)>.57){
     const forward=dx*axesB[0].x+dy*axesB[0].y;
     if(forward>0){
-      if(rearBumperContact(a,b,axesB,forward,dx*axesB[1].x+dy*axesB[1].y)) return;
-    }else if(rearBumperContact(b,a,axesA,-dx*axesA[0].x-dy*axesA[0].y,-dx*axesA[1].x-dy*axesA[1].y)) return;
+      if(rearBumperContact(a,b,axesB,axesA,forward,dx*axesB[1].x+dy*axesB[1].y)) return;
+    }else if(rearBumperContact(b,a,axesA,axesB,-dx*axesA[0].x-dy*axesA[0].y,-dx*axesA[1].x-dy*axesA[1].y)) return;
   }
 
   const tx=-ny,ty=nx;
@@ -168,8 +193,8 @@ function carContact(a,b){
 
   // Ease bodies apart along the contact normal without turning their noses.
   const correction=Math.max(0,depth-.12)*.47;
-  a.x-=nx*correction;a.y-=ny*correction;
-  b.x+=nx*correction;b.y+=ny*correction;
+  separateCar(a,-nx*correction,-ny*correction);
+  separateCar(b,nx*correction,ny*correction);
   if(closing<=.75) return;
 
   const inverseInertia=1/260;
