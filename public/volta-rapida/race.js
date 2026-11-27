@@ -18,7 +18,7 @@ const opponentPaint=[
 ];
 // Alternate columns at equal intervals, with room between bumpers in each file.
 const gridSpacing=Math.ceil(OverdriveCars.maxLength*.77);
-const gridLead=-Math.ceil(OverdriveCars.maxLength*.7);
+const gridLead=-Math.ceil(OverdriveCars.maxLength*.7+25);
 const gridLane=Math.ceil(OverdriveCars.maxWidth);
 const racingLanes=[-55,-24,24,55];
 const samplesPerLap=Math.ceil(TRACK.length/6);

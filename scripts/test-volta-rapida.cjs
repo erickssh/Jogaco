@@ -305,7 +305,7 @@ test('All eight staggered grid slots leave clearance for the largest cars',()=>{
   const {maxWidth,maxLength}=require('../public/volta-rapida/car-models');
   const slots=Array.from({length:8},(_,i)=>game.gridPosition(i));
   const step=slots[0].progress-slots[1].progress;
-  assert(-slots[0].progress>maxLength/2);
+  assert(-slots[0].progress > maxLength/2 + 4 + game.TRACK.halfWidth/10 + 8, 'first grid marking clears the finish stripe');
   for(let i=0;i<slots.length;i++){
     const slot=slots[i];
     assert(Math.abs(slot.lane)+maxWidth/2<game.TRACK.halfWidth);
