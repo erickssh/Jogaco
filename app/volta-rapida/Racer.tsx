@@ -536,7 +536,7 @@ export function Racer({ invite, standalone }: { invite: string; standalone: bool
   const menuControls = { preferences, update, expanded, toggleFullscreen };
   return <div className={standalone ? styles.standalone : undefined}><div ref={shell} lang={preferences.language} style={{"--fullscreen-scale":scale} as React.CSSProperties} className={styles.shell + (expanded ? " " + styles.fullscreen : "")}>
     <iframe ref={iframe} className={styles.game} title={forestCircuit.name}
-      src="/volta-rapida/index.html?menu=1&v=77" allow="autoplay; fullscreen"
+      src="/volta-rapida/index.html?menu=1&v=78" allow="autoplay; fullscreen"
       data-visible={raceVisible} inert={!raceVisible} />
     <div hidden={!showMenu}>
       <Menu screen={screen} shown={showMenu} navigate={navigate} invite={invite} onlineAvailable={onlineEnabled}

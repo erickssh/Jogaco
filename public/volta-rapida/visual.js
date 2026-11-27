@@ -185,7 +185,7 @@ async function prepareCarArt() {
     await image.decode();
 
     // Keep each silhouette within the footprint shared by all race cars.
-    const scale = Math.min(42 / image.naturalHeight, 27 / image.naturalWidth);
+    const scale = Math.min(63 / image.naturalHeight, 40.5 / image.naturalWidth);
     const shadow = document.createElement('canvas');
     shadow.width = image.naturalWidth;
     shadow.height = image.naturalHeight;

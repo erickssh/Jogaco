@@ -231,7 +231,7 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 <script src="./i18n.js?v=77"></script>
 <script src="./car-models.js?v=77"></script>
 <script src="./circuit.js?v=52"></script>
-<script src="./visual.js?v=77"></script>
+<script src="./visual.js?v=78"></script>
 <script src="./facilities.js?v=75"></script>
 <script src="./park.js?v=45"></script>
 <script src="./shadows.js?v=23"></script>
@@ -242,7 +242,7 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
 <script src="./vehicle.js?v=65"></script>
 <script src="./race.js?v=72"></script>
 <script src="./race-hud.js?v=72"></script>
-<script src="./online-race.js?v=77"></script>
+<script src="./online-race.js?v=78"></script>
 <script src="./race-audio.js?v=76"></script>
 <script src="./race-interface.js?v=76"></script>
 <script>
@@ -379,9 +379,9 @@ function paintSkidMarks(driver){
     return;
   }
   const fx=Math.cos(driver.a),fy=Math.sin(driver.a);
-  const wheels=[-8,8].map(offset=>({
-    x:driver.x-14*fx-offset*fy,
-    y:driver.y-14*fy+offset*fx
+  const wheels=[-12,12].map(offset=>({
+    x:driver.x-21*fx-offset*fy,
+    y:driver.y-21*fy+offset*fx
   }));
   if(driver.lastSkid){
     hasSkids=true;
@@ -613,7 +613,7 @@ function draw(now,dt){
     paintFinishStand(ctx,grandstand,finishStandIdle,crowdMotion(finishCrowd,now,reducedMotion.matches));
   }
   for(const bot of opponents){
-    if(!isRetired(bot) && bot.x+30>left && bot.x-30<left+width && bot.y+30>top && bot.y-30<top+height) paintCar(ctx,bot);
+    if(!isRetired(bot) && bot.x+45>left && bot.x-45<left+width && bot.y+45>top && bot.y-45<top+height) paintCar(ctx,bot);
   }
   if(!isRetired(driver)) paintCar(ctx,driver);
   if(objectShadows){

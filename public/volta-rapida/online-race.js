@@ -114,7 +114,7 @@ const onlineRace = (() => {
       if (isRetired(driver) || !driver.name || driver.x < left || driver.x > left + width || driver.y < top || driver.y > top + height) continue;
       const label = driver === local ? driver.name + translate('youTag') : driver.name;
       const w = Math.min(ctx.measureText(label).width, size * 13) + size;
-      const y = driver.y - 25 - size / 2;
+      const y = driver.y - 38 - size / 2;
       ctx.fillStyle = '#20312aee';
       ctx.beginPath();
       ctx.roundRect(driver.x - w / 2, y - size * .72, w, size * 1.44, size * .35);
