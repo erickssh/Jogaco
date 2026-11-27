@@ -299,7 +299,7 @@ export function Racer({ invite }: { invite: string }) {
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     {(solo || room) && <iframe
       key={room?.code ?? "solo"} ref={iframe} className={styles.game} hidden={!solo && !active}
-      title="Volta Rápida — Circuito do Bosque" src="/volta-rapida/index.html?v=44" onLoad={connectFrame}
+      title="Volta Rápida — Circuito do Bosque" src="/volta-rapida/index.html?v=46" onLoad={connectFrame}
     />}
   </>;
 }

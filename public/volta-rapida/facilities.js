@@ -11,12 +11,12 @@ function raceFacility(kind, distance, setback, width, depth, tile, artFront, art
 
 const terraceDistance=3775;
 const raceFacilities = [
-  raceFacility('pits',7160,259,337,215,0,-90,270),
-  raceFacility('broadcast',1030,223,172,160,3,180,158),
-  raceFacility('marshal',2125,158,100,66,null,90,0),
-  raceFacility('terrace',terraceDistance,249,242,178,null,90,0),
-  raceFacility('rescue',4515,235,225,198,2,0,193),
-  raceFacility('marshal',6150,159,100,66,null,90,0)
+  raceFacility('pits',7160,301,337,215,0,-90,270),
+  raceFacility('broadcast',1030,323,172,160,3,180,158),
+  raceFacility('marshal',2125,224,100,66,null,90,0),
+  raceFacility('terrace',terraceDistance,282,242,178,null,90,0),
+  raceFacility('rescue',4515,292,225,198,2,0,193),
+  raceFacility('marshal',6150,225,100,66,null,90,0)
 ];
 const terrace = raceFacilities.find(facility=>facility.kind==='terrace');
 const terraceGate = terrace.gate;

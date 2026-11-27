@@ -124,7 +124,7 @@ function paintNorthTerrace(ctx,motion,stand) {
 }
 
 // Three seating blocks with two aisles, all facing the finish straight.
-const finishStand={x:grid.x,y:grid.y-202,width:594,depth:181,rows:5,sections:3,seats:8};
+const finishStand={x:grid.x,y:grid.y-292,width:594,depth:181,rows:5,sections:3,seats:8};
 
 function insideFinishStand(x,y,margin) {
   return Math.abs(x-finishStand.x)<finishStand.width/2+margin &&

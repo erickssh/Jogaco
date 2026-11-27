@@ -115,31 +115,84 @@ const innerEdge = -TRACK.halfWidth, outerEdge = TRACK.halfWidth;
 const firstBend = TRACK.arcs[0];
 const startDistance = Math.abs(firstBend.sweep)*firstBend.radius + mapX(97.5)-firstBend.bx;
 const grid = TRACK.pointAt(startDistance);
-const gates = [1,2,3,4].map(n=>TRACK.pointAt(startDistance+TRACK.length*n/4));
+// Use the same closed paths for drawing, collisions and the timing lines.
+// Every section lies in its own slice of the road. On tight bends and
+// near another leg, the bisector between centreline points limits the verge.
+function makeTrackBarriers(track,origin){
+  const desiredOffset=2*track.halfWidth;
+  const gateCount=Math.ceil(track.length/36);
+  const samplesPerGate=Math.max(8,Math.ceil(720/track.halfWidth));
+  const count=gateCount*samplesPerGate;
+  const spacing=track.length/count;
+  const samples=Array.from({length:count},(_,index)=>track.pointAt(origin+index*spacing));
+  const sides=[-1,1];
+  const paths=sides.map(side=>{
+    const widths=samples.map(p=>{
+      let reach=Infinity;
+      for(const other of samples){
+        const dx=other.x-p.x,dy=other.y-p.y;
+        const toward=(dx*p.ty-dy*p.tx)*side;
+        if(toward>1e-5) reach=Math.min(reach,(dx*dx+dy*dy)/(2*toward));
+      }
+      return Math.min(desiredOffset,reach-track.halfWidth/30);
+    });
+    // Ease in and out of narrow verges without widening any narrow section.
+    for(let k=1;k<2*count;k++){
+      const i=k%count,previous=(k-1)%count;
+      widths[i]=Math.min(widths[i],widths[previous]+spacing*1.1);
+    }
+    for(let k=2*count-2;k>=0;k--){
+      const i=k%count,next=(k+1)%count;
+      widths[i]=Math.min(widths[i],widths[next]+spacing*1.1);
+    }
+    // Round the shoulders of each pinch while keeping every sample inside
+    // its clearance limit. The full setback remains on open stretches.
+    const eased=widths.map((width,i)=>{
+      let sum=0;
+      for(let delta=-8;delta<=8;delta++) sum+=widths[(i+delta+count)%count];
+      return Math.min(width,sum/17);
+    });
+    return samples.map((p,i)=>({x:p.x+p.ty*side*eased[i],y:p.y-p.tx*side*eased[i]}));
+  });
 
-// Guardrails on the grass between adjacent legs. The same segments are
-// used by the painter, the scenery layout and the physics.
-const shortcutRails=[
-  [[1507,1110],[1536,953],[1573,833],[1692,704],[1825,650]],
-  [[887,2324],[780,2342],[670,2370],[645,2384]]
-];
-const railSegments=shortcutRails.flatMap(points=>points.slice(1).map(([bx,by],i)=>{
-  const [ax,ay]=points[i];
-  const dx=bx-ax,dy=by-ay;
-  return {ax,ay,dx,dy,lengthSquared:dx*dx+dy*dy};
-}));
+  const cellSize=64;
+  const cells=new Map();
+  const cellKey=(x,y)=>x+','+y;
+  paths.forEach((points,wall)=>points.forEach((a,index)=>{
+    const b=points[(index+1)%count];
+    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+    const segment={a,b,dx,dy,wall,nx:-sides[wall]*dy/length,ny:sides[wall]*dx/length,lengthSquared:length*length};
+    for(let x=Math.floor(Math.min(a.x,b.x)/cellSize);x<=Math.floor(Math.max(a.x,b.x)/cellSize);x++){
+      for(let y=Math.floor(Math.min(a.y,b.y)/cellSize);y<=Math.floor(Math.max(a.y,b.y)/cellSize);y++){
+        const key=cellKey(x,y);
+        if(!cells.has(key)) cells.set(key,[]);
+        cells.get(key).push(segment);
+      }
+    }
+  }));
 
-function railOffset(segment,x,y){
-  const {ax,ay,dx,dy,lengthSquared}=segment;
-  const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/lengthSquared));
-  return {x:x-ax-t*dx,y:y-ay-t*dy};
+  function nearby(x1,y1,x2,y2,margin){
+    const segments=new Set();
+    for(let x=Math.floor((Math.min(x1,x2)-margin)/cellSize);x<=Math.floor((Math.max(x1,x2)+margin)/cellSize);x++){
+      for(let y=Math.floor((Math.min(y1,y2)-margin)/cellSize);y<=Math.floor((Math.max(y1,y2)+margin)/cellSize);y++){
+        const list=cells.get(cellKey(x,y));
+        if(list) for(const segment of list) segments.add(segment);
+      }
+    }
+    return segments;
+  }
+
+  const gates=Array.from({length:gateCount},(_,index)=>{
+    const sample=index*samplesPerGate;
+    return {point:samples[sample], right:paths[0][sample], left:paths[1][sample]};
+  });
+  return {paths,gates,nearby};
 }
 
-function crossesGate(gate, beforeX, beforeY, x, y, halfWidth=TRACK.halfWidth) {
-  const before = (beforeX-gate.x)*gate.tx + (beforeY-gate.y)*gate.ty;
-  const after = (x-gate.x)*gate.tx + (y-gate.y)*gate.ty;
-  if (before>=0 || after<0) return false;
-  const t = before/(before-after);
-  const dx = beforeX+(x-beforeX)*t-gate.x, dy=beforeY+(y-beforeY)*t-gate.y;
-  return Math.abs(dx*gate.ty-dy*gate.tx)<=halfWidth;
+const trackBarriers=makeTrackBarriers(TRACK,startDistance);
+
+function railOffset(segment,x,y){
+  const {a,dx,dy,lengthSquared}=segment;
+  const t=Math.max(0,Math.min(1,((x-a.x)*dx+(y-a.y)*dy)/lengthSquared));
+  return {x:x-a.x-t*dx,y:y-a.y-t*dy};
 }

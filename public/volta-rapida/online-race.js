@@ -132,9 +132,9 @@ const onlineRace = (() => {
       }
       if (now - lastSend >= (raceClosed ? 250 : 85)) {
         lastSend = now;
-        const cars = field.map(({ id, x, y, a, vx, vy, spin, lane, progress, standing, finishedAt, checkpoint, drifting, missedLap, cutLap, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }) =>
+        const cars = field.map(({ id, x, y, a, vx, vy, spin, lane, progress, standing, finishedAt, checkpoint, drifting, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }) =>
           ({ id, x, y, a, vx, vy, spin, lane, progress, standing,
-            finishedAt: Number.isFinite(finishedAt) ? finishedAt : null, checkpoint, drifting, missedLap, cutLap, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }));
+            finishedAt: Number.isFinite(finishedAt) ? finishedAt : null, checkpoint, drifting, gap, gapTo, lapStartedAt, lapEndedAt, lastLapTime }));
         send('snapshot', { match, frame: frameNumber++, cars, remaining, elapsed, raceClosed, results: finalResults });
       }
       updateHud(now, remaining);
@@ -158,10 +158,12 @@ const onlineRace = (() => {
             driver.x += driver.vx * slice;
             driver.y += driver.vy * slice;
           }
+          const {x,y}=car;
           driveCar(car, done ? idle : controls, slice);
           for (const driver of bots) carContact(car, driver);
           keepInsideMap(car);
-          keepOutsideRails(car);
+          keepOutsideRails(car,x,y);
+          keepOutsideScenery(car,x,y);
         }
       }
 

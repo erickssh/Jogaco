@@ -92,7 +92,7 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
   </header>
   <main class="stage">
     <canvas id="game" tabindex="-1" aria-label="Pista de corrida vista de cima"></canvas>
-    <p id="race-notice" class="race-notice" hidden>Volta incompleta. Siga a pista na próxima passagem.</p>
+    <p id="race-notice" class="race-notice" hidden></p>
     <aside class="standings" id="standings" hidden><strong>Classificação</strong><ol></ol></aside>
     <div class="speedometer" aria-label="Velocidade em quilômetros por hora"><strong id="speed">0</strong><span>km/h</span></div>
     <canvas id="map" width="266" height="182" aria-label="Mapa do Circuito do Bosque"></canvas>
@@ -139,18 +139,18 @@ button:focus-visible{outline:2px solid var(--rust);outline-offset:3px}
     </div>
   </footer>
 </div>
-<script src="./circuit.js?v=40"></script>
-<script src="./visual.js?v=42"></script>
-<script src="./facilities.js?v=30"></script>
-<script src="./park.js?v=40"></script>
+<script src="./circuit.js?v=45"></script>
+<script src="./visual.js?v=45"></script>
+<script src="./facilities.js?v=45"></script>
+<script src="./park.js?v=45"></script>
 <script src="./shadows.js?v=23"></script>
 <script src="./grass.js?v=23"></script>
 <script src="./crowd.js?v=29"></script>
-<script src="./terrace.js?v=30.1"></script>
-<script src="./vehicle.js?v=43"></script>
-<script src="./race.js?v=44"></script>
-<script src="./race-hud.js?v=44"></script>
-<script src="./online-race.js?v=7"></script>
+<script src="./terrace.js?v=46"></script>
+<script src="./vehicle.js?v=46"></script>
+<script src="./race.js?v=46"></script>
+<script src="./race-hud.js?v=45"></script>
+<script src="./online-race.js?v=9"></script>
 <script>
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d',{alpha:false});
 const lapEl=document.querySelector('#lap'),timeEl=document.querySelector('#time');
@@ -274,9 +274,9 @@ Promise.allSettled([gardenArt.decode(),groundArt.decode(),undergrowthArt.decode(
   const meadow=groundArt.naturalWidth ? meadowMaterial(groundArt) : null;
   paintMeadow(terrainCtx,0,0,W,H,scenery,meadow,undergrowthArt);
   paintAccessRoutes(terrainCtx);
-  paintShortcutRails(terrainCtx);
   paintCircuit(terrainCtx,Array.from({length:opponentPaint.length+1},(_,slot)=>gridPosition(slot)));
   for(const facility of raceFacilities) paintFacilityGround(terrainCtx,facility);
+  paintTrackBarriers(terrainCtx);
   if(gardenArt.naturalWidth){
     objectShadows=buildObjectShadows(gardenArt);
     grandstand=prepareGrandstand(gardenArt);

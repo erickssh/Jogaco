@@ -10,26 +10,35 @@ function castShadow(ctx, height, silhouette, opacity = .42) {
   ctx.restore();
 }
 
-function paintShortcutRails(ctx){
+function paintTrackBarriers(ctx){
   ctx.save();
   ctx.lineCap='round';
   ctx.lineJoin='round';
-  for(const points of shortcutRails){
+  for(const points of trackBarriers.paths){
     ctx.beginPath();
-    ctx.moveTo(...points[0]);
-    for(const point of points.slice(1)) ctx.lineTo(...point);
+    ctx.moveTo(points[0].x,points[0].y);
+    for(const p of points.slice(1)) ctx.lineTo(p.x,p.y);
+    ctx.closePath();
     ctx.strokeStyle='#213c27';
-    ctx.lineWidth=14;
+    ctx.lineWidth=10;
     ctx.stroke();
     ctx.strokeStyle='#9eaa9b';
-    ctx.lineWidth=9;
+    ctx.lineWidth=7;
     ctx.stroke();
     ctx.strokeStyle='#e2ded1';
     ctx.lineWidth=3;
     ctx.stroke();
-    for(const [x,y] of points){
-      ctx.fillStyle='#596354';
-      ctx.fillRect(x-3,y-4,6,8);
+    ctx.fillStyle='#596354';
+    let untilPost=0;
+    for(let i=0;i<points.length;i++){
+      const a=points[i],b=points[(i+1)%points.length];
+      const length=Math.hypot(b.x-a.x,b.y-a.y);
+      while(untilPost<length){
+        const t=untilPost/length;
+        ctx.fillRect(a.x+t*(b.x-a.x)-3,a.y+t*(b.y-a.y)-4,6,8);
+        untilPost+=40;
+      }
+      untilPost-=length;
     }
   }
   ctx.restore();

@@ -2,7 +2,7 @@ const TILE = 192;
 const species = { oak:0, fir:1, copper:2, blossom:3, pavilion:4, table:5, flowers:6, rocks:7,
   tent:9, lodge:10, lodgeNorth:11, cafe:12, garage:13, tower:14, visitor:15, mill:16, market:17 };
 const landmarks = [
-  ['tent',grid.x-372,grid.y-204,106],['lodgeNorth',grid.x+255,grid.y+262,264],
+  ['tent',grid.x-372,grid.y-204,106],['lodgeNorth',grid.x+255,grid.y+346,264],
   ['table',grid.x+97,grid.y+208,54],['table',grid.x+81,grid.y+256,47],
   ['pavilion',1972,1825,121],['table',2035,1855,52],['table',2000,1910,48],
   ['lodge',1628,865,137],['tent',1735,840,74],['pavilion',1170,2250,109],
@@ -121,9 +121,10 @@ function parkLayout(){
     const overlaps = placed.some(([, otherX, otherY, otherSize]) =>
       Math.abs(x-otherX) < (size+otherSize)*.47+3 &&
       Math.abs(y-otherY) < (size+otherSize)*.47+3);
-    const nearRail=railSegments.some(segment=>{
+    const railClearance=size*.52+12;
+    const nearRail=[...trackBarriers.nearby(x,y,x,y,railClearance)].some(segment=>{
       const offset=railOffset(segment,x,y);
-      return Math.hypot(offset.x,offset.y)<size*.52+12;
+      return Math.hypot(offset.x,offset.y)<railClearance;
     });
     if (!overlaps && !nearRail && !inRaceFacility(x,y,size) && !insideFinishStand(x,y,size*.52+12)) placed.push(object);
   }

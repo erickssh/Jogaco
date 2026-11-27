@@ -30,7 +30,10 @@ function driveCar(car,{throttle,steer,drift},dt){
     const brake=(Math.abs(steer)>.12?36:175)*dt;
     forward=Math.sign(forward)*Math.max(0,Math.abs(forward)-brake);
   }
-  const drag=(throttle===0?.46:.085)+grass*2.35;
+  // Grass adds smooth, continuous rolling resistance without changing the
+  // car's power or handling on asphalt. The exponential decay keeps the
+  // slowdown frame-rate independent and still lets the car remain steerable.
+  const drag=(throttle===0?.46:.085)+grass*4.2;
   forward*=Math.exp(-drag*dt);
   sideways*=Math.exp(-dt*grass*2.1);
   const grip=sliding?2.1:9.7-4.7*grass;
@@ -59,25 +62,111 @@ function keepInsideMap(car){
   car.x=x;car.y=y;
 }
 
-function keepOutsideRails(car){
-  // Match the length of the chassis with a front and rear bumper.
-  for(const segment of railSegments){
-    for(const end of [-11,11]){
-      const offset=railOffset(segment,car.x+Math.cos(car.a)*end,car.y+Math.sin(car.a)*end);
-      const distance=Math.hypot(offset.x,offset.y);
-      if(distance>=17) continue;
-      const along=Math.hypot(segment.dx,segment.dy);
-      const side=Math.sign(car.vx*segment.dy-car.vy*segment.dx)||1;
-      const nx=distance>1e-6?offset.x/distance:-side*segment.dy/along;
-      const ny=distance>1e-6?offset.y/distance:side*segment.dx/along;
-      car.x+=nx*(17-distance);
-      car.y+=ny*(17-distance);
-      const inward=car.vx*nx+car.vy*ny;
-      if(inward<0){
-        car.vx=.86*(car.vx-nx*inward*1.08);
-        car.vy=.86*(car.vy-ny*inward*1.08);
+function keepOutsideRails(car,oldX,oldY){
+  const contactRadius=13;
+  const segments=trackBarriers.nearby(oldX,oldY,car.x,car.y,40);
+  if(!segments.size) return;
+
+  // A contact in the pack can displace a car farther than its own motion.
+  // Sweep the centre as well as resolving the bumpers at the final pose.
+  let hitAt=1;
+  for(const {a,dx,dy,nx,ny,lengthSquared} of segments){
+    const before=(oldX-a.x)*nx+(oldY-a.y)*ny;
+    const after=(car.x-a.x)*nx+(car.y-a.y)*ny;
+    if(before<0 || after>=0) continue;
+    const t=before/(before-after);
+    if(t>=hitAt) continue;
+    const x=oldX+t*(car.x-oldX),y=oldY+t*(car.y-oldY);
+    const along=((x-a.x)*dx+(y-a.y)*dy)/lengthSquared;
+    if(along>=0 && along<=1) hitAt=t;
+  }
+  if(hitAt<1){
+    car.x=oldX+hitAt*(car.x-oldX);
+    car.y=oldY+hitAt*(car.y-oldY);
+  }
+
+  const fx=Math.cos(car.a),fy=Math.sin(car.a);
+  let impact=false;
+  for(let pass=0;pass<3;pass++){
+    let touching=false;
+    for(const end of [-11,0,11]){
+      const x=car.x+fx*end,y=car.y+fy*end;
+      const walls=[null,null];
+      for(const segment of segments){
+        const offset=railOffset(segment,x,y);
+        const squared=offset.x*offset.x+offset.y*offset.y;
+        const nearest=walls[segment.wall];
+        if(!nearest || squared<nearest.squared) walls[segment.wall]={segment,offset,squared};
+      }
+      for(const nearest of walls){
+        if(!nearest) continue;
+        const {segment,offset,squared}=nearest;
+        const distance=Math.sqrt(squared);
+        const inside=offset.x*segment.nx+offset.y*segment.ny>=0;
+        const clearance=inside?distance:-distance;
+        if(clearance>=contactRadius) continue;
+        // An unrelated stretch of the same wall is not a contact.
+        if(distance>contactRadius+30) continue;
+        const nx=distance>1e-5?offset.x/clearance:segment.nx;
+        const ny=distance>1e-5?offset.y/clearance:segment.ny;
+        car.x+=nx*(contactRadius-clearance);
+        car.y+=ny*(contactRadius-clearance);
+        const inward=car.vx*nx+car.vy*ny;
+        if(inward<0){
+          car.vx-=nx*inward*1.08;
+          car.vy-=ny*inward*1.08;
+          impact=true;
+        }
+        touching=true;
       }
     }
+    if(!touching) break;
+  }
+  if(impact){car.vx*=.86;car.vy*=.86;}
+}
+
+// Resolve scenery contacts at ground level, preserving tangential motion.
+function keepOutsideScenery(car,oldX,oldY){
+  if(typeof scenery==='undefined' || typeof objectShadows==='undefined' || !objectShadows) return;
+  const radius=10;
+  function impact(nx,ny){
+    const normal=car.vx*nx+car.vy*ny;
+    if(normal<0){
+      car.vx-=normal*nx;
+      car.vy-=normal*ny;
+      car.vx*=.88; car.vy*=.88;
+    }
+  }
+  for(const [kind,x,y,size] of scenery){
+    if(species[kind]>=4) continue;
+    const root=objectShadows[kind].root;
+    const cx=x+(root.x-.5)*size,cy=y+(root.y-.5)*size;
+    const reach=radius+size*.075;
+    if(Math.abs(car.x-cx)>reach+25 || Math.abs(car.y-cy)>reach+25) continue;
+    const fx=Math.cos(car.a),fy=Math.sin(car.a);
+    for(const end of [-11,0,11]){
+      const dx=car.x+fx*end-cx,dy=car.y+fy*end-cy;
+      const d=Math.hypot(dx,dy);
+      if(d>=reach) continue;
+      const nx=d>1e-5?dx/d:Math.cos(car.a+Math.PI);
+      const ny=d>1e-5?dy/d:Math.sin(car.a+Math.PI);
+      car.x+=nx*(reach-d); car.y+=ny*(reach-d);
+      impact(nx,ny);
+    }
+  }
+  // The asphalt is a bridge where it crosses the water.
+  if(Math.abs(TRACK.offsetAt(car.x,car.y))<=TRACK.halfWidth+12) return;
+  const side=Math.sign(oldY-streamY(oldX)) || 1;
+  const slope=(streamY(car.x+1)-streamY(car.x-1))/2;
+  const widthSlope=(streamHalf(car.x+1)-streamHalf(car.x-1))/2;
+  const gradient=slope+side*widthSlope;
+  const norm=Math.hypot(gradient,1);
+  const nx=-side*gradient/norm,ny=side/norm;
+  const clearance=(side*(car.y-streamY(car.x))-streamHalf(car.x))/norm;
+  const extent=radius+11*Math.abs(Math.cos(car.a)*nx+Math.sin(car.a)*ny);
+  if(clearance<extent && clearance> -extent-20){
+    car.x+=nx*(extent-clearance); car.y+=ny*(extent-clearance);
+    impact(nx,ny);
   }
 }
 

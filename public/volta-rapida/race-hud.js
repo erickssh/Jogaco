@@ -49,7 +49,6 @@ function renderStandings(order,now){
     if(split) timing='Volta '+Math.floor(driver.checkpoint/gateCount)+' · '+clockTime(driver.lastLapTime);
     else if(Number.isFinite(driver.finishedAt)) timing=clockTime(driver.finishedAt);
     else if(raceClosed) timing='Não concluiu';
-    else if(driver.cutLap) timing='Volta inválida';
     else if(!index) timing='Líder';
     else timing=driver.gap==null || driver.gapTo!==order[index-1].id?'—':'+'+driver.gap.toFixed(2).replace('.',',')+' s';
     return {driver,timing,split};
@@ -124,8 +123,7 @@ function updateRaceHud(now,clock=elapsed){
   const focus=watching??car;
   setHudText(positionEl,(order.indexOf(focus)+1)+' / '+order.length);
   setHudText(speedEl,String(Math.round(Math.hypot(focus.vx,focus.vy)*kilometersPerHour)));
-  raceNotice.hidden=done||!car.missedLap;
-  if(!raceNotice.hidden) setHudText(raceNotice,car.cutLap?'Corte de caminho. Esta volta não conta.':'Volta incompleta. Siga a pista na próxima passagem.');
+  raceNotice.hidden=true;
   const completed=Math.floor(focus.checkpoint/gateCount);
   setHudText(lapEl,Math.min(raceLaps,completed+1)+' / '+raceLaps);
   const finished=Number.isFinite(focus.finishedAt);
